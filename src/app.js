@@ -1,6 +1,8 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import cors from "cors";
+import { globalErrorHandler } from "./middleware/error.middleware.js";
+import shopsRouter from "./routes/shopping.routes.js"
 const app = express()
 
 app.use(cors({
@@ -8,12 +10,12 @@ app.use(cors({
     credentials: true
 }))
 
-app.use(express.json({ limit: "16lb" }))
-app.use(express.urlencoded({ limit: "16kb" }))
+app.use(express.json())
+app.use(express.urlencoded())
 app.use(express.static("public"))
 app.use(cookieParser())
 
+app.use("/api/v1/shops", shopsRouter)      // http://localhost:4000/api/v1/shops/user
 
-
-
+app.use(globalErrorHandler)
 export { app }
