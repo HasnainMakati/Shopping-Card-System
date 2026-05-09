@@ -6,7 +6,7 @@ import shopsRouter from "./routes/shopping.routes.js"
 const app = express()
 
 app.use(cors({
-    origin: process.env.ORIGIN,
+    origin: process.env.CORS_ORIGIN || process.env.CORS_ORIGIN_OTHERS,
     credentials: true
 }))
 
