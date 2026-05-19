@@ -3,14 +3,12 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { generateAccessAndRefreshToken } from "../service/token.js";
 import bcrypt from "bcrypt";
-import { uploadOnCloudinary } from "../utils/cloudinary.js";
-import {
-    findExistedUser, createUser, getUser, findUserByEmail, userDeleteById, userUpdateById, userFindByIdAndUpdateRefreshToken,
-    createProduct, getProduct, responseAllProducts, responseAllDataWithFilter, isProductExists, productFindById,
-    createCart, createCartItemsTemp, getCartItemsById, getAllCartItemResponse,
-    findUserById
-} from "../model/query.model.js";
 import jwt from "jsonwebtoken";
+import {
+    findExistedUser, createUser, getUser, findUserByEmail, userDeleteById,
+    userUpdateById, userFindByIdAndUpdateRefreshToken, findUserById, addUserAddress, getUserAddress,
+    findExistedUserAddress
+} from "../model/user.model.js";
 
 const registerUser = asyncHandler(async (req, res) => {
     const { firstName, lastName, email, phone, password, gender } = req.body
@@ -155,15 +153,15 @@ const editUser = asyncHandler(async (req, res) => {
     await userUpdateById(lowerFirstName, lowerLastName, lowerEmail, phone, lowerGender, user_id)
 
     const user = await getUser(user_id)
-    console.log(user, "Edited")
+    console.log(user, "Edited user")
 
     return res
         .status(201)
         .json(new ApiResponse(201, user, "User edited successfully"))
 })
 const deleteUser = asyncHandler(async (req, res) => {
-    const user_id = req.params.user_id
-    console.log(req.params)
+    const { user_id } = req.body
+
     if (!user_id) {
         throw new ApiError(400, "User id is required")
     }
@@ -174,107 +172,28 @@ const deleteUser = asyncHandler(async (req, res) => {
         .status(201)
         .json(new ApiResponse(201, {}, "User delete"))
 })
+const userAddressDetails = asyncHandler(async (req, res) => {
+    const { fullName, pincode, state, city, address, country } = req.body
 
-// <========================== Products ============================>
-const addProduct = asyncHandler(async (req, res) => {
-    const { productType, productName, productDetails, productPrice } = req.body
-
-    const lowerProductType = productType.toLowerCase()
     const user_id = req.user.user_id
+    const lowerFullName = fullName.toLowerCase()
+    const lowerState = state.toLowerCase()
+    const lowerCity = city.toLowerCase()
+    const lowerAddress = address.toLowerCase()
+    const lowerCountry = country.toLowerCase()
 
-    if ([lowerProductType, productName, productDetails, productPrice].some((fields) => !fields || fields.trim() === "")) {
+    if ([lowerFullName, pincode, lowerState, lowerCity, lowerAddress, lowerCountry].some((fields) => !fields || fields.trim() === "")) {
         throw new ApiError(400, "All fields are required")
     }
 
-    await isProductExists(productName)
-
-    const productImageLocalPath = req.file?.path;
-
-    if (!productImageLocalPath) {
-        throw new ApiError(400, "Image are required")
-    }
-
-    const productImageDone = await uploadOnCloudinary(productImageLocalPath)
-
-    if (!productImageDone) {
-        throw new ApiError(400, "Image upload failed")
-    }
-    // console.log(productImageDone, "Url")
-
-    const productAddInDb = await createProduct(user_id, productType, productName, productDetails, productPrice, productImageDone)
-
-    const product = await getProduct(productAddInDb.insertId)
-    console.log(product, "PRODUCT CREATED")
-
+    await findExistedUserAddress(user_id)
+    await addUserAddress(user_id, lowerFullName, pincode, lowerState, lowerCity, lowerAddress, lowerCountry)
+    const response = await getUserAddress(user_id)
+    console.log(response, "USer address")
     return res
         .status(201)
-        .json(
-            new ApiResponse(201, product, "Product successfully added")
-        )
+        .json(new ApiResponse(201, response, "Address added"))
 })
-const getAllProducts = asyncHandler(async (req, res) => {
-    const allProducts = await responseAllProducts()
-    return res
-        .status(201)
-        .json(
-            new ApiResponse(201, allProducts, "All products fetched")
-        )
-})
-const getAllProductByFilter = asyncHandler(async (req, res) => {
-
-    const { productType } = req.query
-
-    if (!productType) {
-        throw new ApiError(400, "Products name required")
-    }
-
-    const response = await responseAllDataWithFilter(productType)
-
-    if (!response) {
-        throw new ApiError(404, "Invalid products name", ["Products not existed", "Enter valid products"])
-    }
-
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(200, response, `${productType} data fetched successfully`)
-        )
-})
-
-// <========================== Cart ============================>
-const productAddToCart = asyncHandler(async (req, res) => {
-    const { productId, quantity } = req.body
-    const user_id = req.user.user_id
-    console.log(quantity, "quantity")
-    if (!productId || !quantity) {
-        throw new ApiError(400, "All fields are required", ['Check productId or quantity are not missing'])
-    }
-
-    const product = await productFindById(productId)
-    console.log(product, "PRODUCT")
-
-    await createCart(user_id, productId, quantity)
-    const cartItemData = await createCartItemsTemp(user_id, productId, quantity, product.productName, product.productPrice, product.productImageUrl)
-
-    const response = await getCartItemsById(cartItemData.insertId)
-
-    return res
-        .status(201)
-        .json(
-            new ApiResponse(201, response, "Product add to cart")
-        )
-})
-const getAllCartItems = asyncHandler(async (req, res) => {
-    const allCartItems = await getAllCartItemResponse()
-    return res
-        .status(201)
-        .json(
-            new ApiResponse(201, allCartItems, "All cart products fetched")
-        )
-})
-
-
 export {
-    registerUser, loginUser, logoutUser, editUser, deleteUser,
-    addProduct, getAllProducts, getAllProductByFilter, productAddToCart, getAllCartItems, refreshAccessToken
-}   
+    registerUser, loginUser, logoutUser, refreshAccessToken, editUser, deleteUser, userAddressDetails
+}
