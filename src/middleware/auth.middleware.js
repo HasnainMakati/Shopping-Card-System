@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken"
 import { ApiError } from "../utils/ApiError.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
-import { findUserByToken } from "../model/query.model.js";
+import { findUserByToken } from "../model/user.model.js";
 
 
 const verifyUserWithToken = asyncHandler(async (req, _, next) => {

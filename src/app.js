@@ -2,7 +2,12 @@ import cookieParser from "cookie-parser";
 import express from "express";
 import cors from "cors";
 import { globalErrorHandler } from "./middleware/error.middleware.js";
-import shopsRouter from "./routes/shopping.routes.js"
+
+import userRouter from "./routes/user.routes.js";
+import productRouter from "./routes/product.routes.js";
+import cartRouter from "./routes/cart.routes.js";
+import orderRouter from "./routes/order.routes.js";
+
 const app = express()
 
 app.use(cors({
@@ -15,7 +20,12 @@ app.use(express.urlencoded())
 app.use(express.static("public"))
 app.use(cookieParser())
 
-app.use("/api/v1/shops", shopsRouter)      // http://localhost:4000/api/v1/shops/user
+// http://localhost:4000/api/v1/shops/user
+
+app.use("/api/v1/shops/users", userRouter)
+app.use("/api/v1/shops/products", productRouter)
+app.use("/api/v1/shops/carts", cartRouter)
+app.use("/api/v1/shops/orders", orderRouter)
 
 app.use(globalErrorHandler)
 export { app }
