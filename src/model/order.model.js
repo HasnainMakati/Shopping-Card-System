@@ -46,9 +46,9 @@ const orderResponse = async () => {
 }
 const billDetailing = async (user_id) => {
     const [rows] = await db.query(`
-    SELECT oi.snapshot_name,oi.snapshot_price,oi.quantity,o.total_amount,p.seller_address,p.productId,
+    SELECT oi.order_item_id,oi.snapshot_name,oi.snapshot_price,oi.quantity,o.total_amount,p.seller_address,p.productId,
     u.address AS buyer_address,u.city AS buyer_city 
-    FROM order_item AS oi
+    FROM order_item AS oi   
     INNER JOIN products AS p ON oi.productId = p.productId
     INNER JOIN orders AS o ON oi.order_id = o.order_id          
     INNER JOIN user_address AS u ON o.user_id = u.user_id     
@@ -59,18 +59,19 @@ const billDetailing = async (user_id) => {
     }
     return rows
 }
-const createBill = async (user_id, orderId, invoiceId, productId, amount, buyer_address, seller_address, buyer_city) => {
+const createBill = async (user_id, order_item_id, orderId, invoiceId, productId, seller_address, buyer_address, buyer_city, totalPrice, productName) => {
     const [result] = await db.query(`
-    INSERT INTO order_bill (user_id,orderId, invoiceId, productId,totalPrice, buyer_address,seller_address, buyer_city) VALUES (?,?,?,?,?,?,?,?)`,
-        [user_id, orderId, invoiceId, productId, amount, buyer_address, seller_address, buyer_city])
+    INSERT INTO order_bill (user_id, order_item_id, orderId, invoiceId, productId, seller_address, buyer_address, buyer_city, totalPrice,productName)
+    VALUES (?,?,?,?,?,?,?,?,?,?)`,
+        [user_id, order_item_id, orderId, invoiceId, productId, seller_address, buyer_address, buyer_city, totalPrice, productName])
     if (result.affectedRows === 0) {
         throw new ApiError(404, "Database inserted data error", ["Crete bill"])
     }
     return result
 }
-const getBill = async (orderId, invoiceId) => {
+const getBill = async (order_item_id) => {
     const [rows] = await db.query
-        (`SELECT * FROM order_bill WHERE orderId=? AND invoiceId=?`, [orderId, invoiceId])
+        (`SELECT * FROM order_bill WHERE order_item_id=?`, [order_item_id])
 
     if (rows.length === 0) {
         throw new ApiError(404, "There are no bill in the list", ["getBill"])
@@ -85,7 +86,7 @@ const responseAllCompleteOrders = async (user_id) => {
     }
     return rows
 }
-const addOrder = async (user_id, order_id, productId, quantity, snapshot_name, snapshot_price, productImageUrl) => {
+const addOrderItems = async (user_id, order_id, productId, quantity, snapshot_name, snapshot_price, productImageUrl) => {
     const [result] = await db.query(`
     INSERT INTO order_item (user_id,order_id, productId, quantity, snapshot_name, snapshot_price, productImageUrl)
     VALUES (?,?,?,?,?,?,?)`, [user_id, order_id, productId, quantity, snapshot_name, snapshot_price, productImageUrl])
@@ -106,5 +107,5 @@ const updateOldOrder = async (user_id, status) => {
 
 export {
     getOrderById, getOrderByUserId, orderStatusUpdate, orderResponse, billDetailing,
-    createBill, getBill, responseAllCompleteOrders, addOrder, updateOldOrder, createOrder
+    createBill, getBill, responseAllCompleteOrders, addOrderItems, updateOldOrder, createOrder
 }

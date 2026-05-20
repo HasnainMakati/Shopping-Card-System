@@ -58,7 +58,7 @@ const userUpdateById = async (firstName, lastName, email, phone, gender, user_id
     const [result] = await db.query(`
     UPDATE users SET firstName=?,lastName=?,email=?,phone=?,gender=? WHERE user_id = ?`, [firstName, lastName, email, phone, gender, user_id])
     if (result.affectedRows === 0) {
-        throw new ApiError(404, "There is no user with the name you have submitted")
+        throw new ApiError(404, "There is no user with the user_id you have submitted")
     }
     return result
 }
@@ -90,7 +90,7 @@ const addUserAddress = async (user_id, lowerFullName, pincode, lowerState, lower
 
     return result
 }
-const getUserAddress = async (user_id) => {
+const checkUserAddress = async (user_id) => {
     const [rows] = await db.query(`SELECT * FROM user_address WHERE user_id=?`, [user_id])
 
     if (rows.length === 0) {
@@ -109,5 +109,5 @@ const findExistedUserAddress = async (user_id) => {
 export {
     findExistedUser, createUser, getUser, findUserByEmail, userDeleteById,
     userUpdateById, userFindByIdAndUpdateRefreshToken, findUserById, findUserByToken,
-    addUserAddress, getUserAddress, findExistedUserAddress
+    addUserAddress, checkUserAddress, findExistedUserAddress
 }

@@ -6,7 +6,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import {
     findExistedUser, createUser, getUser, findUserByEmail, userDeleteById,
-    userUpdateById, userFindByIdAndUpdateRefreshToken, findUserById, addUserAddress, getUserAddress,
+    userUpdateById, userFindByIdAndUpdateRefreshToken, findUserById, addUserAddress, checkUserAddress,
     findExistedUserAddress
 } from "../model/user.model.js";
 
@@ -61,8 +61,11 @@ const loginUser = asyncHandler(async (req, res) => {
 
     const loginResponse = {
         user_id: loggedUser.user_id,
-        name: loggedUser.lastName,
+        firstName: loggedUser.firstName,
+        lastName: loggedUser.lastName,
         email: loggedUser.email,
+        phone: loggedUser.phone,
+        gender: loggedUser.gender,
         accessToken,
         refreshToken
     }
@@ -137,6 +140,8 @@ const editUser = asyncHandler(async (req, res) => {
 
     const { user_id, firstName, lastName, email, phone, gender } = req.body
 
+    console.log({ user_id, firstName, lastName, email, phone, gender })
+
     const lowerFirstName = firstName.toLowerCase()
     const lowerLastName = lastName.toLowerCase()
     const lowerEmail = email.toLowerCase()
@@ -188,7 +193,7 @@ const userAddressDetails = asyncHandler(async (req, res) => {
 
     await findExistedUserAddress(user_id)
     await addUserAddress(user_id, lowerFullName, pincode, lowerState, lowerCity, lowerAddress, lowerCountry)
-    const response = await getUserAddress(user_id)
+    const response = await checkUserAddress(user_id)
     console.log(response, "USer address")
     return res
         .status(201)

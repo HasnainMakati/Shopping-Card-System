@@ -57,10 +57,8 @@ const getCartItemById = async (user_id) => {
     return rows
 }
 const getCartItemByProductId = async (placeHolder, idArray) => {
-    console.log(placeHolder, idArray, 'yahi se error he sali')
     const [rows] = await db.query
         (`SELECT productId, quantity, productImageUrl, snapshot_name, snapshot_price FROM cart_item WHERE productId IN (${placeHolder})`, idArray)
-    // `SELECT productId, quantity, productImageUrl, snapshot_name, snapshot_price FROM cart_item WHERE productId IN (${placeholder})`,idArray 
     if (rows.length === 0) {
         throw new ApiError(404, "There is no productId with the cart item you have enter", ["getCartItemByProductId"])
     }
