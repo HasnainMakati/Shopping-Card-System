@@ -1,6 +1,7 @@
 import cookieParser from "cookie-parser";
 import express from "express";
 import cors from "cors";
+import razorPay from "razorpay";
 import { globalErrorHandler } from "./middleware/error.middleware.js";
 
 import userRouter from "./routes/user.routes.js";
@@ -9,6 +10,11 @@ import cartRouter from "./routes/cart.routes.js";
 import orderRouter from "./routes/order.routes.js";
 
 const app = express()
+
+export const razorpayInstance = new razorPay({
+    key_id: process.env.RAZOR_API_KEY,
+    key_secret: process.env.RAZOR_API_SECRET
+})
 
 app.use(cors({
     origin: process.env.CORS_ORIGIN || process.env.CORS_ORIGIN_OTHERS,

@@ -16,11 +16,11 @@ const verifyUserWithToken = asyncHandler(async (req, _, next) => {
         const user = await findUserByToken(decodedToken._id)
 
         req.user = user
-        console.log("Auth", user.user_id)
+        console.log("A", user.user_id)
 
         next()
     } catch (error) {
-        throw new ApiError(401, "Token verification failed", [{ error }])
+        throw new ApiError(401, "Token verification failed", [error.message])
     }
 })
 

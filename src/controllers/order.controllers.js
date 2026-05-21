@@ -10,11 +10,13 @@ import {
 import { generateInvoiceID, generateOrderID } from "../service/bill.js";
 import { getCartItemByProductId, deleteCartItem } from "../model/cart.model.js";
 import { checkUserAddress } from "../model/user.model.js";
+import { razorpayInstance } from "../app.js";
+import crypto from "crypto";
 
 
 const orderItems = asyncHandler(async (req, res) => {
 
-    const { productIds } = req.body
+    const { productIds, method } = req.body
     const user_id = req.user.user_id
 
     if (!productIds) {
@@ -51,15 +53,28 @@ const orderItems = asyncHandler(async (req, res) => {
     }
     await deleteCartItem(placeHolder, idArray)
 
-    const response = {
-        totalAmount: Number(amount.toFixed(2)) + 40,
-        totalOrderProduct,
-        productDetails
+    console.log(amount, "Amount he")
+
+    const options = ({
+        amount: Math.round(amount * 100),
+        currency: "INR",
+        receipt: `receipt_${Date.now()}`,
+    })
+
+    try {
+        const order = await razorpayInstance.orders.create(options)
+        console.log(order, "order")
+
+        console.log({ order, totalOrderProduct, productDetails }, "Check out")
+        return res
+            .status(201)
+            .json(new ApiResponse(201, { order, totalOrderProduct, productDetails }, "Order check successfully"))
+
+    } catch (error) {
+        throw new ApiError(500, "Razorpay order failed", ["Order creation cancelled"]);
     }
-    console.log(response, "Check out")
-    return res
-        .status(201)
-        .json(new ApiResponse(201, response, "Order check successfully"))
+
+
 
 })
 const orderPaymentProcess = asyncHandler(async (req, res) => {
@@ -104,7 +119,7 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
         orderId = generateOrderID()
         invoiceId = generateInvoiceID()
         await createBill(
-            user_id, b.order_item_id, orderId, invoiceId, b.productId, b.seller_address, b.buyer_address, b.buyer_city, b.total_amount, b.productName
+            user_id, b.order_item_id, orderId, invoiceId, b.productId, b.seller_address, b.buyer_address, b.buyer_city, b.total_amount, b.snapshot_name
         )
     }
     return res
@@ -134,6 +149,61 @@ const orderBill = asyncHandler(async (req, res) => {
         .status(201)
         .json(new ApiResponse(201, bill, "Bill created"))
 })
+const verifyPayment = asyncHandler(async (req, res) => {
+
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
+    const user_id = req.user.user_id
+    let idArray = []
+    let orderId = ''
+    let invoiceId = ''
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        throw new ApiError(400, "All fields are required", ["Check [razorpay_order_id,razorpay_payment_id,razorpay_signature] are not missing"])
+    }
+
+    const sign = razorpay_order_id + "|" + razorpay_payment_id;
+
+    const expectedSignature = crypto
+        .createHmac("sha256", process.env.RAZOR_API_SECRET)
+        .update(sign.toString())
+        .digest("hex");
+
+    const isAuthenticate = expectedSignature === razorpay_signature;
+    console.log("expectedSignature=> ", expectedSignature)
+    console.log("razorpay_signature=> ", razorpay_signature)
+
+    if (!isAuthenticate) {
+        throw new ApiError(400, "payment verification failed", ["razorpay_signature does not match"])
+    }
+
+    await checkUserAddress(user_id)                         // get bill details
+    const orderProducts = await getOrderByUserId(user_id, 'unpaid')
+    const bill = await billDetailing(user_id)                           // get bill details
+
+    for (let item of orderProducts) {
+        if (item.payment_status === 'paid') {
+            throw new ApiError(400, "Payment already paid")
+        }
+        idArray.push(Array.isArray(item.order_id) ? item.order_id : [item.order_id]);
+    }
+
+
+    const placeHolder = idArray.map(() => '?').join(',');
+    await orderStatusUpdate("shipped", "paid", "online", idArray, placeHolder);
+
+    for (let b of bill) {
+        orderId = generateOrderID()
+        invoiceId = generateInvoiceID()
+        await createBill(
+            user_id, b.order_item_id, orderId, invoiceId, b.productId, b.seller_address, b.buyer_address, b.buyer_city, b.total_amount, b.snapshot_name
+        )
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, { status: "Paid" }, "Order placed successfully"));
+
+})
 export {
-    orderItems, orderPaymentProcess, getCompletedOrder, orderBill
+    orderItems, orderPaymentProcess, getCompletedOrder, orderBill, verifyPayment
 }
