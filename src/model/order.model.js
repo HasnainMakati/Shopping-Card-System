@@ -12,7 +12,8 @@ const getOrderById = async (order_id) => {
 }
 const createOrder = async (user_id, productId, total_amount, payment_status) => {
     const [result] = await db.query(`
-    INSERT INTO orders (user_id, productId,total_amount,payment_status) VALUES (?,?,?,?)`, [user_id, productId, total_amount, payment_status])
+    INSERT INTO orders (user_id, productId,total_amount,payment_status) VALUES (?,?,?,?)`,
+        [user_id, productId, total_amount, payment_status])
     if (result.affectedRows === 0) {
         throw new ApiError(404, "Database inserted data error", ["Crete orders"])
     }
@@ -86,12 +87,11 @@ const responseAllCompleteOrders = async (user_id) => {
     }
     return rows
 }
-const addOrderItems = async (user_id, order_id, productId, quantity, snapshot_name, snapshot_price, productImageUrl) => {
+const addOrderItems = async (user_id, order_id, productId, productImageUrl, quantity, snapshot_name, snapshot_price) => {
     const [result] = await db.query(`
-    INSERT INTO order_item (user_id,order_id, productId, quantity, snapshot_name, snapshot_price, productImageUrl)
-    VALUES (?,?,?,?,?,?,?)`, [user_id, order_id, productId, quantity, snapshot_name, snapshot_price, productImageUrl])
+    INSERT INTO order_item (user_id,order_id, productId,productImageUrl, quantity, snapshot_name, snapshot_price)
+    VALUES (?,?,?,?,?,?,?)`, [user_id, order_id, productId, productImageUrl, quantity, snapshot_name, snapshot_price])
 
-    console.log({ user_id, order_id, productId, quantity, snapshot_name, snapshot_price, productImageUrl })
     if (result.affectedRows === 0) {
         throw new ApiError(404, "Database inserted data error", ["Order add"])
     }

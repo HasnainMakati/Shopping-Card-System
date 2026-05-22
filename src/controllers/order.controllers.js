@@ -16,7 +16,7 @@ import crypto from "crypto";
 
 const orderItems = asyncHandler(async (req, res) => {
 
-    const { productIds, method } = req.body
+    const { productIds } = req.body
     const user_id = req.user.user_id
 
     if (!productIds) {
@@ -45,7 +45,7 @@ const orderItems = asyncHandler(async (req, res) => {
         const orderItems = await getOrderById(orders.insertId)
 
         // add details in the order_item jaha sare complete order aayege
-        await addOrderItems(user_id, orderItems[0].order_id, item.productId, item.quantity, item.snapshot_name, itemPrice, item.productImageUrl)
+        await addOrderItems(user_id, orderItems[0].order_id, item.productId, item.productImageUrl, item.quantity, item.snapshot_name, itemPrice)
         totalOrderProduct += 1
         amount += itemPrice
         productDetails.push({ productId: item.productId, productPrice: itemPrice })
@@ -53,28 +53,15 @@ const orderItems = asyncHandler(async (req, res) => {
     }
     await deleteCartItem(placeHolder, idArray)
 
-    console.log(amount, "Amount he")
-
-    const options = ({
-        amount: Math.round(amount * 100),
-        currency: "INR",
-        receipt: `receipt_${Date.now()}`,
-    })
-
-    try {
-        const order = await razorpayInstance.orders.create(options)
-        console.log(order, "order")
-
-        console.log({ order, totalOrderProduct, productDetails }, "Check out")
-        return res
-            .status(201)
-            .json(new ApiResponse(201, { order, totalOrderProduct, productDetails }, "Order check successfully"))
-
-    } catch (error) {
-        throw new ApiError(500, "Razorpay order failed", ["Order creation cancelled"]);
+    const response = {
+        totalAmount: Number(amount.toFixed(2)) + 40,
+        totalOrderProduct,
+        productDetails
     }
-
-
+    console.log(response, "Check out")
+    return res
+        .status(201)
+        .json(new ApiResponse(201, response, "Order check successfully"))
 
 })
 const orderPaymentProcess = asyncHandler(async (req, res) => {
@@ -149,9 +136,73 @@ const orderBill = asyncHandler(async (req, res) => {
         .status(201)
         .json(new ApiResponse(201, bill, "Bill created"))
 })
+const createRazorOrder = asyncHandler(async (req, res) => {
+
+    const { productIds, userAmount } = req.body
+    const user_id = req.user.user_id
+
+    let amount = 0
+    let totalOrderProduct = 0
+    let productDetails = []
+
+    await updateOldOrder(user_id, 'unpaid')
+
+    const idArray = Array.isArray(productIds) ? productIds : [productIds];
+    const placeHolder = idArray.map(() => '?').join(',')
+
+    // cart item ke product get
+    const cartItem = await getCartItemByProductId(placeHolder, idArray)
+
+    for (const item of cartItem) {
+
+        const itemPrice = Number(item.snapshot_price)
+
+        // create order jisme status and price he
+        const orders = await createOrder(user_id, item.productId, itemPrice, 'unpaid')
+        const orderItems = await getOrderById(orders.insertId)
+
+        // add details in the order_item jaha sare complete order aayege
+        await addOrderItems(user_id, orderItems[0].order_id, item.productId, item.quantity, item.snapshot_name, itemPrice, item.productImageUrl)
+        totalOrderProduct += 1
+        amount += itemPrice
+        productDetails.push({ productId: item.productId, productPrice: itemPrice })
+
+    }
+    amount += 40
+    console.log(`User: ${amount} | Main: ${userAmount}`)
+    if (amount !== Number(userAmount)) {
+        throw new ApiError(400, "Amount are not enough", ["Enter correct amount"])
+    }
+    await deleteCartItem(placeHolder, idArray)
+
+    const options = ({
+        amount: Math.round(amount * 100),
+        currency: "INR",
+        receipt: `receipt_${Date.now()}`,
+    })
+
+    try {
+        const order = await razorpayInstance.orders.create(options)
+        console.log(order, "order")
+
+        // const response = {
+        //     order_id:order.id,
+        //     order
+        // }
+        console.log({ order, totalOrderProduct, productDetails }, "Check out")
+        return res
+            .status(201)
+            .json(new ApiResponse(201, { totalOrderProduct, productDetails, order }, "Order check successfully"))
+
+    } catch (error) {
+        throw new ApiError(500, "Razorpay order failed", ["Order creation cancelled"]);
+    }
+
+})
 const verifyPayment = asyncHandler(async (req, res) => {
 
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
+
     const user_id = req.user.user_id
     let idArray = []
     let orderId = ''
@@ -189,7 +240,7 @@ const verifyPayment = asyncHandler(async (req, res) => {
 
 
     const placeHolder = idArray.map(() => '?').join(',');
-    await orderStatusUpdate("shipped", "paid", "online", idArray, placeHolder);
+    await orderStatusUpdate("shipped", "paid", "razorpay", idArray, placeHolder);
 
     for (let b of bill) {
         orderId = generateOrderID()
@@ -205,5 +256,13 @@ const verifyPayment = asyncHandler(async (req, res) => {
 
 })
 export {
-    orderItems, orderPaymentProcess, getCompletedOrder, orderBill, verifyPayment
+    orderItems, orderPaymentProcess, getCompletedOrder, orderBill, verifyPayment, createRazorOrder
 }
+
+
+/*
+    console.log(amount, "Amount he")
+
+    
+
+*/
