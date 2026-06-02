@@ -8,6 +8,7 @@ import userRouter from "./routes/user.routes.js";
 import productRouter from "./routes/product.routes.js";
 import cartRouter from "./routes/cart.routes.js";
 import orderRouter from "./routes/order.routes.js";
+import adminRouter from "./routes/admin.routes.js";
 
 const app = express()
 
@@ -16,10 +17,20 @@ export const razorpayInstance = new Razorpay({
     key_secret: process.env.RAZOR_API_SECRET
 })
 
+const allowedOrigins = [
+    process.env.CORS_ORIGIN,
+    process.env.CORS_ORIGIN_OTHERS
+].filter(Boolean);
+
 app.use(cors({
-    origin: process.env.CORS_ORIGIN || process.env.CORS_ORIGIN_OTHERS,
+    origin: allowedOrigins,
     credentials: true
-}))
+}));
+
+// app.use(cors({
+//     origin: process.env.CORS_ORIGIN_OTHERS || process.env.CORS_ORIGIN,
+//     credentials: true
+// }))
 
 app.use(express.json())
 app.use(express.urlencoded())
@@ -32,6 +43,7 @@ app.use("/api/v1/shops/users", userRouter)
 app.use("/api/v1/shops/products", productRouter)
 app.use("/api/v1/shops/carts", cartRouter)
 app.use("/api/v1/shops/orders", orderRouter)
+app.use("/api/v1/shops/admin", adminRouter)
 
 app.use(globalErrorHandler)
 export { app }

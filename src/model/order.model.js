@@ -47,7 +47,7 @@ const orderResponse = async () => {
 }
 const billDetailing = async (user_id) => {
     const [rows] = await db.query(`
-    SELECT oi.order_item_id,oi.snapshot_name,oi.snapshot_price,oi.quantity,o.total_amount,p.seller_address,p.productId,
+    SELECT oi.order_item_id,oi.snapshot_name,oi.snapshot_price,oi.quantity,o.total_amount,p.seller_address,p.productId,p.stock,
     u.address AS buyer_address,u.city AS buyer_city 
     FROM order_item AS oi   
     INNER JOIN products AS p ON oi.productId = p.productId
@@ -80,7 +80,7 @@ const getBill = async (order_item_id) => {
     return rows[0]
 }
 const responseAllCompleteOrders = async (user_id) => {
-    const [rows] = await db.query(`SELECT * FROM order_item WHERE user_id=?`, [user_id])
+    const [rows] = await db.query(`SELECT * FROM order_item WHERE user_id=? AND success=?`, [user_id, 'true'])
 
     if (rows.length === 0) {
         throw new ApiError(404, "order items is empty")
@@ -89,8 +89,8 @@ const responseAllCompleteOrders = async (user_id) => {
 }
 const addOrderItems = async (user_id, order_id, productId, productImageUrl, quantity, snapshot_name, snapshot_price) => {
     const [result] = await db.query(`
-    INSERT INTO order_item (user_id,order_id, productId,productImageUrl, quantity, snapshot_name, snapshot_price)
-    VALUES (?,?,?,?,?,?,?)`, [user_id, order_id, productId, productImageUrl, quantity, snapshot_name, snapshot_price])
+    INSERT INTO order_item (user_id,order_id, productId,productImageUrl, quantity, snapshot_name, snapshot_price,success)
+    VALUES (?,?,?,?,?,?,?,?)`, [user_id, order_id, productId, productImageUrl, quantity, snapshot_name, snapshot_price, 'true'])
 
     if (result.affectedRows === 0) {
         throw new ApiError(404, "Database inserted data error", ["Order add"])
@@ -103,9 +103,15 @@ const updateOldOrder = async (user_id, status) => {
     console.log(result, "Update Old order")
     return { message: "updated" }
 }
+const stockUpdate = async (productId) => {
+    const [result] = await db.query(`UPDATE products SET stock=stock-1 WHERE productId = ? AND stock > 0`, [productId])
 
-
+    if (result.affectedRows === 0) {
+        throw new ApiError(400, "Product out of stock or invalid Product ID", ["stock"]);
+    }
+    return { message: "updated" }
+}
 export {
     getOrderById, getOrderByUserId, orderStatusUpdate, orderResponse, billDetailing,
-    createBill, getBill, responseAllCompleteOrders, addOrderItems, updateOldOrder, createOrder
+    createBill, getBill, responseAllCompleteOrders, addOrderItems, updateOldOrder, createOrder, stockUpdate
 }

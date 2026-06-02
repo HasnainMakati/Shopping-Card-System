@@ -5,17 +5,23 @@ import {
     productFindById, createCart, createCartItemsTemp, getAllCartItemResponse,
     cartItemDeleteById, findExistedCartItem, getCartItemById,
 } from "../model/cart.model.js";
+import { isUserBlock } from "../model/user.model.js";
 
 const productAddToCart = asyncHandler(async (req, res) => {
 
     const { productId, quantity } = req.body
     const user_id = req.user.user_id
+    await isUserBlock(user_id)
 
     if (!productId || !quantity) {
         throw new ApiError(400, "All fields are required", ['Check productId or quantity are not missing'])
     }
 
     const product = await productFindById(productId)
+    if (product.stock === 0) {
+        throw new ApiError(500, "Product out of stock !")
+    }
+
     console.log(product, "productAddToCart")
 
     await findExistedCartItem(productId)
@@ -41,6 +47,9 @@ const getAllCartItems = asyncHandler(async (req, res) => {
 const deleteCartItems = asyncHandler(async (req, res) => {
 
     const cartItem_id = req.params.id
+    const user_id = req.user.user_id
+    await isUserBlock(user_id)
+
     if (!cartItem_id) {
         throw new ApiError(400, "Cart item id is required")
     }

@@ -74,7 +74,7 @@ const deleteCartItem = async (placeHolder, idArray) => {
 }
 const productFindById = async (productId) => {
     const [rows] = await db.query(`
-    SELECT productId,productName,productPrice,productImageUrl,seller_address FROM products WHERE productId = ?`, [productId])
+    SELECT productId,productName,productPrice,productImageUrl,seller_address,stock FROM products WHERE productId = ?`, [productId])
     // SELECT productId,productName,productPrice,productImageUrl,seller_address FROM products WHERE productId = ? AND user_id`, [productId, user_id])
 
     if (rows.length === 0) {

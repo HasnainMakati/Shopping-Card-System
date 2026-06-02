@@ -5,36 +5,41 @@ import { generateAccessAndRefreshToken } from "../service/token.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import {
-    findExistedUser, createUser, getUser, findUserByEmail, userDeleteById,
+    findExistedUser, createUser, getUser, findUserByEmail,
     userUpdateById, userFindByIdAndUpdateRefreshToken, findUserById, addUserAddress, checkUserAddress,
-    findExistedUserAddress
+    findExistedUserAddress,
 } from "../model/user.model.js";
 
 const registerUser = asyncHandler(async (req, res) => {
-    const { firstName, lastName, email, phone, password, gender } = req.body
-
+    const { firstName, lastName, email, phone, password, gender, role } = req.body
+    console.log({ firstName, lastName, email, phone, password, gender })
     const lowerFirstName = firstName.toLowerCase()
     const lowerLastName = lastName.toLowerCase()
     const lowerEmail = email.toLowerCase()
     const lowerGender = gender.toLowerCase()
 
-    if ([lowerFirstName, lowerLastName, lowerEmail, phone, password, lowerGender].some((fields) => !fields || fields.trim() === "")) {
+    if ([lowerFirstName, lowerLastName, lowerEmail, phone, password, lowerGender, role].some((fields) => !fields || fields.trim() === "")) {
         throw new ApiError(400, "All fields are required")
     }
 
-    await findExistedUser(phone, email)
+    await findExistedUser(phone, lowerEmail, role)
 
     const encryptedPassword = await bcrypt.hash(password, 10)
 
-    const userAddInDb = await createUser(lowerFirstName, lowerLastName, lowerEmail, phone, encryptedPassword, lowerGender)
+    let lowerRole = 'user';
+    if (role === process.env.ADMIN_SECRET_KEY) {
+        lowerRole = 'admin';
+    }
+
+    const userAddInDb = await createUser(lowerFirstName, lowerLastName, lowerEmail, phone, encryptedPassword, lowerGender, lowerRole)
 
     const user = await getUser(userAddInDb.insertId)
-    console.log(user, "USER CREATED")
+    console.log(user, `${lowerRole} created`)
 
     return res
         .status(201)
         .json(
-            new ApiResponse(201, user, "User created Successfully")
+            new ApiResponse(201, user, `${lowerRole} created Successfully`)
         )
 })
 const loginUser = asyncHandler(async (req, res) => {
@@ -47,6 +52,7 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 
     const findUser = await findUserByEmail(lowerEmail)
+    const name = findUser.role
 
     const isPasswordCorrect = await bcrypt.compare(password, findUser.password)
 
@@ -79,7 +85,7 @@ const loginUser = asyncHandler(async (req, res) => {
         .cookie("accessToken", accessToken, options)
         .cookie("refreshToken", refreshToken, options)
         .json(
-            new ApiResponse(200, loginResponse, "User logged successfully"))
+            new ApiResponse(200, loginResponse, `${name} logged successfully`))
 })
 const logoutUser = asyncHandler(async (req, res) => {
 
@@ -164,19 +170,6 @@ const editUser = asyncHandler(async (req, res) => {
         .status(201)
         .json(new ApiResponse(201, user, "User edited successfully"))
 })
-const deleteUser = asyncHandler(async (req, res) => {
-    const { user_id } = req.body
-
-    if (!user_id) {
-        throw new ApiError(400, "User id is required")
-    }
-
-    await userDeleteById(user_id)
-
-    return res
-        .status(201)
-        .json(new ApiResponse(201, {}, "User delete"))
-})
 const userAddressDetails = asyncHandler(async (req, res) => {
     const { fullName, pincode, state, city, address, country } = req.body
 
@@ -199,6 +192,7 @@ const userAddressDetails = asyncHandler(async (req, res) => {
         .status(201)
         .json(new ApiResponse(201, response, "Address added"))
 })
+
 export {
-    registerUser, loginUser, logoutUser, refreshAccessToken, editUser, deleteUser, userAddressDetails
+    registerUser, loginUser, logoutUser, refreshAccessToken, editUser, userAddressDetails
 }

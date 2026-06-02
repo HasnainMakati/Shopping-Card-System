@@ -12,7 +12,7 @@ const findUserByToken = async (user_id) => {
 }
 const findUserByEmail = async (email) => {
 
-    const [rows] = await db.query("SELECT user_id,email,password FROM users WHERE email = ?", [email])
+    const [rows] = await db.query("SELECT user_id,email,password,role FROM users WHERE email = ?", [email])
     if (rows.length === 0) {
         throw new ApiError(401, "No user exists with this email address",)
     }
@@ -25,17 +25,25 @@ const findUserById = async (user_id) => {
     }
     return rows[0]
 }
-const findExistedUser = async (phone, email) => {
+const findExistedUser = async (phone, lowerEmail, role) => {
 
-    const [rows] = await db.query("SELECT user_id,email FROM users WHERE phone = ? OR email = ?", [phone, email])
+    const [rows] = await db.query("SELECT user_id,email FROM users WHERE (phone = ? OR email = ?) AND role=?", [phone, lowerEmail, role])
+    console.log(rows)
+    if (rows.length > 0) {
+        throw new ApiError(401, "The email or phone number you entered already exist", ["User"])
+    }
+}
+const findExistedAdmin = async (phone, lowerEmail, role) => {
+
+    const [rows] = await db.query("SELECT admin_id,email FROM admin WHERE phone = ? OR email = ? AND role=?", [phone, lowerEmail, role])
     if (rows.length > 0) {
         throw new ApiError(401, "The email or phone number you entered already exist",)
     }
 }
-const createUser = async (firstName, lastName, email, phone, encryptedPassword, gender) => {
+const createUser = async (firstName, lastName, lowerEmail, phone, encryptedPassword, gender, lowerRole) => {
     const [result] = await db.query(`
-    INSERT INTO users (firstName, lastName, email, phone, password, gender)
-    VALUES (?, ?, ?,?,?,?)`, [firstName, lastName, email, phone, encryptedPassword, gender])
+    INSERT INTO users (firstName, lastName, email, phone, password, gender,role,ac_status)
+    VALUES (?,?,?,?,?,?,?,?)`, [firstName, lastName, lowerEmail, phone, encryptedPassword, gender, lowerRole, 'active'])
 
     if (result.affectedRows === 0) {
         throw new ApiError(404, "Database inserted data error")
@@ -103,11 +111,33 @@ const findExistedUserAddress = async (user_id) => {
     const [rows] = await db.query("SELECT user_id FROM user_address WHERE user_id = ?", [user_id])
     console.log(rows, 'mili')
     if (rows.length > 0) {
-        throw new ApiError(401, "The address you entered already exist", ["delete old address then enter new address"])
+        throw new ApiError(400, "The address you entered already exist", ["delete old address then enter new address"])
+    }
+}
+const isUserBlock = async (user_id) => {
+
+    const [rows] = await db.query("SELECT user_id FROM users WHERE user_id=? AND ac_status=?", [user_id, 'block'])
+    if (rows.length > 0) {
+        throw new ApiError(400, "You cannot add products because your account is blocked !",)
+    }
+}
+const userAccountStatusUpdate = async (user_id, ac_status) => {
+    const [result] = await db.query(`
+    UPDATE users SET ac_status=? WHERE user_id = ?`, [ac_status, user_id])
+    if (result.affectedRows === 0) {
+        throw new ApiError(404, "There is no user with the user_id you have submitted")
+    }
+    return { ac_status }
+}
+const findAdmin = async (adminId) => {
+    const [rows] = await db.query(`SELECT user_id,firstName FROM users WHERE user_id=? AND role=?`, [adminId, 'admin'])
+
+    if (rows.length === 0) {
+        throw new ApiError(401, "Only Admin can access users information")
     }
 }
 export {
     findExistedUser, createUser, getUser, findUserByEmail, userDeleteById,
     userUpdateById, userFindByIdAndUpdateRefreshToken, findUserById, findUserByToken,
-    addUserAddress, checkUserAddress, findExistedUserAddress
+    addUserAddress, checkUserAddress, findExistedUserAddress, isUserBlock, userAccountStatusUpdate, findAdmin, findExistedAdmin
 }

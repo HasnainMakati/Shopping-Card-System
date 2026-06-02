@@ -1,0 +1,57 @@
+STARTING STEP:
+->create folders and files 
+->manage npm init
+->install nodemon and manage with package.json
+
+DATABASE STEP:
+->go to mongoDB atlas
+->create new project name and others details
+->get connection string and paste .env files
+->set database name in constant.file
+->two type db connect 1.direct index.j, 2.connect database in db folder and import index.json
+
+APP.JS SETTINGS 
+->Data different side se aayega ,, to use app.use se handle karna like....[cors,json,urlEncoded,static,cookie-parser]
+->create ApiError class that handle to error 
+->create ApiResponse class that send response to a specific format
+->create asyncHandler that handle async operation in overall program
+
+Models , Password Hashing and JWT
+->Create User & Video models
+->install 'mongoose' ( 'mongooseAggregatePaginate' ) package that add some functionality in video models 
+->install 'bcrypt' , jwt 'package'
+->password hash using bcrypt.hash()methods ,, password checking with compare methods.
+->create a custom methods to generate access-refresh token, with jwt.sign() with payload,accessToken,Expiry.
+
+UPLOAD FILE CLOUDINARY AND CLOUDINARY SETTINGS
+->install 'cloudinary' and 'multer' packages and import fs for file settings(read ,update,delete).
+->create a uploadCloudinary methods (custom) , jo cloudinary pe file upload karegi , using uploader.upload().
+->create a storage using multer , jo file ki location and name define karega.  (multer req ko file ka access deta he like.. 'req.file')
+->fs.unlinkSync jo file ko remove kar degi
+
+Routes and Controllers Guide
+->create a routes using Router(). (ye ek Url (API) he , jo user req ki throw aati he like.... /api/v1/users)
+->create a Controllers , jo asyncHandler ke base par ready hua he. (Url ka actual logic) 
+->crete middleware in app.js , jisme ek 'users' prefix he , uske base par routes-Controllers work karege.
+
+REGISTER ( USER CONTROLLERS )
+->req.body jaha se data aayega , and usko check karege data empty to nahi he.
+->used some methods like.. findOne,findById ,, 
+->req.file?.avatar[0]?.path;  es line se avatarImage ka url milega. (avatar[0] matlab first object )
+->upload file using uploadCloudinary() jo utils me banai he. [uploading ke liye ,ek middleware bhi set kiya he exact userRegister se pehle]
+->created user ,jo check hoga findById se , and add select() jo (password ,token) ko response me nahi behjega.
+->return response with ApiResponse.
+
+POSTMAN SETTINGS: 
+->postman is api platform , jaha developers api ke test,build etc kar sakate he.
+
+LOGIN  ( USER CONTROLLERS ):
+->get data from req.body and check validations
+->user find and check password is same as database password
+->create methods generate access & refresh token base on user data with user.id
+->refresh token store in database , user save() ,return both tokens
+->send cookie with access-refresh token ,add options { httpOnly,secure }
+
+LOGOUT  ( USER CONTROLLERS ):
+->crete a auth middleware , jo verify karega access token real he ya nahi, agar he to req.user = user set karega 
+->

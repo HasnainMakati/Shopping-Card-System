@@ -2,10 +2,11 @@ import { ApiError } from "../utils/ApiError.js";
 import { db } from "../db/index.js";
 
 
-const createProduct = async (user_id, productType, productName, productDetails, productPrice, productImageUrl, productAddress) => {
+const createProduct = async (user_id, productType, productName, productDetails, productPrice, stock, productAddress, productImageUrl) => {
     const [result] = await db.query(`
-    INSERT INTO products (user_id, productType, productName, productDetails, productPrice, productImageUrl,seller_address)
-    VALUES (?, ?,?,?,?,?,?)`, [user_id, productType, productName, productDetails, productPrice, productImageUrl, productAddress])
+    
+    INSERT INTO products (user_id, productType, productName, productDetails, productPrice, stock, seller_address, productImageUrl)
+    VALUES (?,?,?,?,?,?,?,?)`, [user_id, productType, productName, productDetails, productPrice, stock, productAddress, productImageUrl])
 
     if (result.affectedRows === 0) {
         throw new ApiError(404, "Database inserted data error")
@@ -13,9 +14,29 @@ const createProduct = async (user_id, productType, productName, productDetails, 
 
     return result
 }
+const updateProduct = async (productId, productType, productName, productDetails, productPrice, stock, productAddress, productImageUrl) => {
+    const [result] = await db.query(`
+    UPDATE products SET productType=?, productName=?, productDetails=?, productPrice=?,stock=?,seller_address=?,productImageUrl=? WHERE
+    productId=?`, [productType, productName, productDetails, productPrice, stock, productAddress, productImageUrl, productId])
+
+    if (result.affectedRows === 0) {
+        throw new ApiError(404, "Database update error")
+    }
+
+    return result
+}
+const deleteProduct = async (productId) => {
+    const [result] = await db.query(`
+    DELETE FROM products WHERE productId=?`, [productId])
+
+    if (result.affectedRows === 0) {
+        throw new ApiError(404, "Database delete data error")
+    }
+    return result
+}
 const getProduct = async (productId) => {
     const [rows] = await db.query(
-        `SELECT user_id,productId, productType, productName, productDetails, productPrice, productImageUrl,seller_address
+        `SELECT user_id,productId, productType, productName, productDetails, productPrice, productImageUrl,seller_address,stock
         FROM products WHERE productId = ?`, [productId]);
 
     if (rows.length === 0) {
@@ -41,6 +62,7 @@ const responseAllDataWithFilter = async (productType) => {
 }
 const isProductExists = async (productName) => {
     const [rows] = await db.query("SELECT productName FROM products WHERE productName = ?", [productName])
+
     if (rows.length > 0) {
         throw new ApiError(401, "The product you entered already exist",)
     }
@@ -57,5 +79,5 @@ const productFindById = async (productId) => {
 }
 
 export {
-    createProduct, getProduct, responseAllProducts, responseAllDataWithFilter, isProductExists, productFindById,
+    createProduct, getProduct, responseAllProducts, responseAllDataWithFilter, isProductExists, productFindById, updateProduct, deleteProduct
 }

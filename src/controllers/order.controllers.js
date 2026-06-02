@@ -6,10 +6,11 @@ import {
     getOrderByUserId, orderStatusUpdate, addOrderItems,
     responseAllCompleteOrders, billDetailing, createBill, getBill,
     updateOldOrder,
+    stockUpdate,
 } from "../model/order.model.js";
 import { generateInvoiceID, generateOrderID } from "../service/bill.js";
 import { getCartItemByProductId, deleteCartItem } from "../model/cart.model.js";
-import { checkUserAddress } from "../model/user.model.js";
+import { checkUserAddress, isUserBlock } from "../model/user.model.js";
 import { razorpayInstance } from "../app.js";
 import crypto from "crypto";
 
@@ -18,6 +19,7 @@ const orderItems = asyncHandler(async (req, res) => {
 
     const { productIds } = req.body
     const user_id = req.user.user_id
+    await isUserBlock(user_id)
 
     if (!productIds) {
         throw new ApiError(404, "Product id is required")
@@ -76,7 +78,6 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
     if (!userOrderAmount) {
         throw new ApiError(400, "Amount are required ")
     }
-
     await checkUserAddress(user_id)
 
     const bill = await billDetailing(user_id)                           // get bill details
@@ -91,7 +92,8 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
         calculatedAmount += Number(item.total_amount)
     }
 
-    calculatedAmount += 40                        // Delivery amount 40 add
+    calculatedAmount += 40
+    console.log(calculatedAmount)               // Delivery amount 40 add
     console.log(`User: ${userOrderAmount} | Main: ${calculatedAmount}`)
 
     if (Number(userOrderAmount) !== calculatedAmount) {
@@ -108,6 +110,7 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
         await createBill(
             user_id, b.order_item_id, orderId, invoiceId, b.productId, b.seller_address, b.buyer_address, b.buyer_city, b.total_amount, b.snapshot_name
         )
+        await stockUpdate(b.productId)
     }
     return res
         .status(201)
@@ -141,6 +144,8 @@ const createRazorOrder = asyncHandler(async (req, res) => {
     const { productIds, userAmount } = req.body
     const user_id = req.user.user_id
 
+    await isUserBlock(user_id)
+
     let amount = 0
     let totalOrderProduct = 0
     let productDetails = []
@@ -162,14 +167,14 @@ const createRazorOrder = asyncHandler(async (req, res) => {
         const orderItems = await getOrderById(orders.insertId)
 
         // add details in the order_item jaha sare complete order aayege
-        await addOrderItems(user_id, orderItems[0].order_id, item.productId, item.quantity, item.snapshot_name, itemPrice, item.productImageUrl)
+        await addOrderItems(user_id, orderItems[0].order_id, item.productId, item.productImageUrl, item.quantity, item.snapshot_name, itemPrice, item.productImageUrl)
         totalOrderProduct += 1
         amount += itemPrice
         productDetails.push({ productId: item.productId, productPrice: itemPrice })
 
     }
     amount += 40
-    console.log(`User: ${amount} | Main: ${userAmount}`)
+    console.log(`User: ${userAmount} | Main: ${amount}`)
     if (amount !== Number(userAmount)) {
         throw new ApiError(400, "Amount are not enough", ["Enter correct amount"])
     }
@@ -220,8 +225,6 @@ const verifyPayment = asyncHandler(async (req, res) => {
         .digest("hex");
 
     const isAuthenticate = expectedSignature === razorpay_signature;
-    console.log("expectedSignature=> ", expectedSignature)
-    console.log("razorpay_signature=> ", razorpay_signature)
 
     if (!isAuthenticate) {
         throw new ApiError(400, "payment verification failed", ["razorpay_signature does not match"])
@@ -249,7 +252,7 @@ const verifyPayment = asyncHandler(async (req, res) => {
             user_id, b.order_item_id, orderId, invoiceId, b.productId, b.seller_address, b.buyer_address, b.buyer_city, b.total_amount, b.snapshot_name
         )
     }
-
+    console.log("Razor payment done")
     return res
         .status(200)
         .json(new ApiResponse(200, { status: "Paid" }, "Order placed successfully"));
@@ -258,11 +261,3 @@ const verifyPayment = asyncHandler(async (req, res) => {
 export {
     orderItems, orderPaymentProcess, getCompletedOrder, orderBill, verifyPayment, createRazorOrder
 }
-
-
-/*
-    console.log(amount, "Amount he")
-
-    
-
-*/
