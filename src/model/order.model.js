@@ -1,5 +1,5 @@
 import { ApiError } from "../utils/ApiError.js";
-import { db } from "../db/index.js";
+import { db, sequelize } from "../db/index.js";
 
 const getOrderById = async (order_id) => {
     const [rows] = await db.query
@@ -20,8 +20,8 @@ const createOrder = async (user_id, productId, total_amount, payment_status) => 
     return result
 }
 const getOrderByUserId = async (user_id, status) => {
-    const [rows] = await db.query
-        (`SELECT order_id,productId,total_amount,payment_status FROM orders WHERE user_id=? AND payment_status =?`, [user_id, status])
+    const [rows] = await sequelize.query
+        (`SELECT order_id,total_amount,payment_status FROM orders WHERE user_id=? AND payment_status =?`, [user_id, status])
 
     if (rows.length === 0) {
         throw new ApiError(404, "No unpaid order found", ["getOrderByUserId"])

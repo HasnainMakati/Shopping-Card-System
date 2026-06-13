@@ -1,5 +1,9 @@
-import { ApiError } from "../utils/ApiError.js";
-import { db } from "../db/index.js";
+import {
+    ApiError
+} from "../utils/ApiError.js";
+import {
+    db
+} from "../db/index.js";
 
 const allProducts = async () => {
     const [rows] = await db.query("SELECT productName,productImageUrl,productPrice,productType,stock FROM products");
@@ -10,7 +14,9 @@ const allProducts = async () => {
     return rows
 }
 const allOrders = async () => {
-    const [rows] = await db.query("SELECT * FROM orders");
+    const [rows] = await db.query(`
+    SELECT o.order_id, o.user_id, o.total_amount, o.order_status, o.payment_status,o.order_date,u.firstName,u.lastName
+    FROM orders AS o INNER JOIN users AS u ON u.user_id=o.user_id ORDER BY o.order_date DESC`);
 
     if (rows.length === 0) {
         throw new ApiError(403, "No Orders")
@@ -22,7 +28,6 @@ const allBill = async (orderId) => {
         `SELECT * FROM order_bill WHERE orderId = ?`,
         [orderId]
     );
-    console.log(rows)
     if (!rows || rows.length === 0) {
         throw new ApiError(404, "There are no bills in the list", ["allBill"]);
     }
@@ -42,8 +47,8 @@ const allUser = async () => {
 }
 const allInVoice = async () => {
     const [rows] = await db.query(`
-    SELECT u.user_id,u.firstName,
-    ob.bill_id,ob.orderId,ob.totalPrice,ob.bill_date,o.payment_status 
+    SELECT u.user_id,u.firstName,u.lastName,
+    ob.bill_id,ob.orderId,ob.productName,ob.totalPrice,ob.bill_date,o.payment_status 
     FROM users AS u INNER JOIN order_bill AS ob ON u.user_id=ob.user_id 
     INNER JOIN orders AS o ON o.user_id = ob.user_id WHERE o.payment_status=? GROUP BY ob.bill_id`, ['paid']);
 
@@ -59,9 +64,48 @@ const findAdmin = async (adminId) => {
         throw new ApiError(401, "Only Admin can access users information or data")
     }
 }
+const shopHiglight = async () => {
+    const [rows] = await db.query(
+        `SELECT 
+        (SELECT COUNT(*) FROM orders WHERE order_status = 'pending') AS pendingOrders,
+        (SELECT COUNT(*) FROM products WHERE stock < 10) AS lowStock,
+        (SELECT COUNT(*) FROM users WHERE ac_status = 'active' AND role = 'user') AS accountActive,
+        (SELECT COUNT(*) FROM users WHERE role='user') AS totalUsers,
+        (SELECT COUNT(*) FROM products) AS totalProducts,
+        (SELECT COUNT(*) FROM orders WHERE order_status='shipped') AS totalOrders,
+        (SELECT COALESCE(SUM(totalPrice), 0) FROM order_bill WHERE bill_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01')) AS revenue`
+    );
+    if (!rows || rows.length === 0) {
+        throw new ApiError(404, "There are no pending orders in the list", ["shopHiglight"]);
+    }
 
+    return rows;
+}
+// const graphOverview = async () => {
+//     const [rows] = await db.query(
+//         `SELECT 
+//         MONTHNAME(bill_date) AS monthName,
+//         SUM(totalPrice) AS monthlyRevenue
+//         FROM order_bill
+//         WHERE YEAR(bill_date) = YEAR(CURRENT_DATE()) -- Sirf chal rahe saal (Current Year) ka data dekhne ke liye
+//         GROUP BY MONTH(bill_date), MONTHNAME(bill_date)
+//         ORDER BY MONTH(bill_date) ASC`; 
+//     );
+//     if (!rows || rows.length === 0) {
+//         throw new ApiError(404, "There are no data in the list", ["graphOverview"]);
+//     }
+
+//     return rows;
+// }
 
 
 export {
-    allProducts, allOrders, allUser, allInVoice, allBill, findAdmin,
+    allProducts,
+    allOrders,
+    allUser,
+    allInVoice,
+    allBill,
+    findAdmin,
+    shopHiglight,
+    // graphOverview,
 }

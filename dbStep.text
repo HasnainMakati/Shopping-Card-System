@@ -55,3 +55,7 @@ LOGIN  ( USER CONTROLLERS ):
 LOGOUT  ( USER CONTROLLERS ):
 ->crete a auth middleware , jo verify karega access token real he ya nahi, agar he to req.user = user set karega 
 ->
+
+C:\Program Files\MySQL\MySQL Workbench 8.0>cd "C:\Program Files\MySQL\MySQL Workbench 8.0"
+
+C:\Program Files\MySQL\MySQL Workbench 8.0>MySQLWorkbench.exe

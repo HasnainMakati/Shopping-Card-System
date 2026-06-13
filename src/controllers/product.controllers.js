@@ -1,13 +1,14 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import {
-    responseAllProducts, responseAllDataWithFilter
-} from "../model/product.model.js";
+import { Products } from "../model/products.model.js";
 
 
 const getAllProducts = asyncHandler(async (req, res) => {
-    const allProducts = await responseAllProducts()
+    const user_id = req.user.user_id
+    const allProducts = await Products.findAll()
+
+    if (allProducts.length === 0) throw new ApiError(400, "No any products for this users")
     return res
         .status(201)
         .json(
@@ -17,14 +18,14 @@ const getAllProducts = asyncHandler(async (req, res) => {
 const getAllProductByFilter = asyncHandler(async (req, res) => {
 
     const { productType } = req.query
-
+    console.log(productType)
     if (!productType) {
-        throw new ApiError(400, "Products name required")
+        throw new ApiError(400, "Products type required")
     }
 
-    const response = await responseAllDataWithFilter(productType)
+    const response = await Products.findAll({ where: { productType }, raw: true })
 
-    if (!response) {
+    if (response.length === 0) {
         throw new ApiError(404, "Invalid products name", ["Products not existed", "Enter valid products"])
     }
 

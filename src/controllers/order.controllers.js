@@ -1,59 +1,104 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import {
-    createOrder, getOrderById,
-    getOrderByUserId, orderStatusUpdate, addOrderItems,
-    responseAllCompleteOrders, billDetailing, createBill, getBill,
-    updateOldOrder,
-    stockUpdate,
-} from "../model/order.model.js";
 import { generateInvoiceID, generateOrderID } from "../service/bill.js";
-import { getCartItemByProductId, deleteCartItem } from "../model/cart.model.js";
-import { checkUserAddress, isUserBlock } from "../model/user.model.js";
 import { razorpayInstance } from "../app.js";
 import crypto from "crypto";
+import { Orders } from "../model/orders.model.js";
+import { Cart_Items } from "../model/cart_item.model.js";
+import { Op, where } from "sequelize";
+import { Order_Items } from "../model/order-item.model.js";
+import { Address } from "../model/address.model.js";
+import { User } from "../model/users.model.js";
+import { Products } from "../model/products.model.js";
+import { clearLine } from "readline";
+import { cloneDeep } from "sequelize/lib/utils";
+import { Order_Bill } from "../model/order_bill.model.js";
 
 
 const orderItems = asyncHandler(async (req, res) => {
 
-    const { productIds } = req.body
-    const user_id = req.user.user_id
-    await isUserBlock(user_id)
+    const { productIds, quantity } = req.body
+    console.log(productIds, quantity)
 
-    if (!productIds) {
-        throw new ApiError(404, "Product id is required")
+
+    const user_id = req.user.user_id
+    // await isUserBlock(user_id)
+    if (!Array.isArray(productIds || !Array.isArray(quantity))) {
+        throw new ApiError(400, "All fields are required")
     }
 
     // if old orders unpaid , now it`a update to failed 
-    await updateOldOrder(user_id, 'unpaid')
+    const oldOrder = await Orders.update({ payment_status: 'failed' }, { where: { [Op.and]: [{ user_id }, { payment_status: 'unpaid' }] } })
+    console.log(oldOrder)
 
     const idArray = Array.isArray(productIds) ? productIds : [productIds];
     const placeHolder = idArray.map(() => '?').join(',')
-
     // cart item ke product get
-    const cartItem = await getCartItemByProductId(placeHolder, idArray)
+    const cartItem = await Cart_Items.findAll({
+        where: { [Op.and]: [{ product_id: { [Op.in]: idArray } }, { user_id }] },
+        attributes: ['cart_item_id', 'product_id', 'itemName', 'itemImage', 'itemQuantity', 'itemPrice'],
+        raw: true
+    })
+    if (cartItem.length === 0) throw new ApiError(404, "There is no productId with the cart item you have enter",)
 
+
+    let index = 0
+    let addQty;
     let amount = 0
     let totalOrderProduct = 0
     let productDetails = []
 
-    for (const item of cartItem) {
+    for (let item of cartItem) {
+        let newQty = quantity[index]
+        let price = Number(item.itemPrice) * newQty
 
-        const itemPrice = Number(item.snapshot_price)
+        if (newQty !== 1) {
+            console.log('RUN INNER', newQty)
+            addQty = await Cart_Items.update({
+                itemQuantity: Number(newQty),
+                itemPrice: Number(price)
+            },
+                { where: { cart_item_id: item.cart_item_id } })
+        }
 
-        // create order jisme status and price he
-        const orders = await createOrder(user_id, item.productId, itemPrice, 'unpaid')
-        const orderItems = await getOrderById(orders.insertId)
 
+        console.log(newQty, price, "money")
+        const orders = await Orders.create({
+            user_id,
+            product_id: item.product_id,
+            total_amount: Number(price),
+            order_status: 'pending',
+            payment_method: 'no data',
+            payment_status: 'unpaid'
+        })
+
+        const ordersOrder_id = orders.order_id || orders.id;
         // add details in the order_item jaha sare complete order aayege
-        await addOrderItems(user_id, orderItems[0].order_id, item.productId, item.productImageUrl, item.quantity, item.snapshot_name, itemPrice)
+        await Order_Items.create({
+            user_id,
+            order_id: ordersOrder_id,
+            product_id: item.product_id,
+            itemName: item.itemName,
+            itemImage: item.itemImage,
+            itemQuantity: newQty,
+            itemPrice: price,
+            order_status: 'Your item is on the way',
+            success: 'no data',
+        })
         totalOrderProduct += 1
-        amount += itemPrice
-        productDetails.push({ productId: item.productId, productPrice: itemPrice })
+        amount += price
+        productDetails.push({ product_id: item.product_id, productPrice: price })
 
+        index++
     }
-    await deleteCartItem(placeHolder, idArray)
+    console.log(addQty, 'cartItem')
+
+
+    await Cart_Items.destroy({
+        where: { [Op.and]: [{ product_id: { [Op.in]: idArray } }, { user_id }] }
+    })
+    // await deleteCartItem(placeHolder, idArray)
 
     const response = {
         totalAmount: Number(amount.toFixed(2)) + 40,
@@ -72,53 +117,111 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
     let user_id = req.user.user_id
     let calculatedAmount = 0
     let idArray = []
-    let orderId = ''
     let invoiceId = ''
 
     if (!userOrderAmount) {
         throw new ApiError(400, "Amount are required ")
     }
-    await checkUserAddress(user_id)
 
-    const bill = await billDetailing(user_id)                           // get bill details
-    const orderProducts = await getOrderByUserId(user_id, 'unpaid')     // get only unpaid orders
-    console.log(bill, 'Bill')
+    const checkAddress = await Address.findOne({ where: { user_id }, raw: true })
+    if (!checkAddress) throw new ApiError(400, "Address are required ", ["Enter your address"])
 
-    for (let item of orderProducts) {
-        if (item.payment_status === 'paid') {
-            throw new ApiError(400, "Payment already paid")
+    const allCartItems = await User.findAll({
+        where: { user_id },
+        attributes: ["user_id", "firstName", "lastName", "email", "role"],
+        raw: true,
+        include: [
+            {
+                model: Order_Items, attributes: ["order_item_id", "product_id", "itemName", "itemQuantity", "itemPrice"],
+                include: [
+                    { model: Products, attributes: ["productAddress", "productStock"] },
+                    { model: Orders, where: { payment_status: 'unpaid' }, attributes: ['order_id', 'total_amount', 'payment_status'] },
+                ]
+            },
+            { model: Address, attributes: ["address", "city_state"] }
+        ],
+        // raw: true
+    })
+    const all = allCartItems.map((data) => {
+        return {
+            order_id: data['Order_Items.Order.order_id'],
+            total_amount: data['Order_Items.Order.total_amount'],
+            payment_status: data['Order_Items.Order.payment_status'],
+            user_id: data.user_id,
+            order_item_id: data['Order_Items.order_item_id'],
+            itemName: data['Order_Items.itemName'],
+            itemQuantity: data['Order_Items.itemQuantity'],
+            itemPrice: data['Order_Items.itemPrice'],
+            product_id: data['Order_Items.product_id'],
+            seller_address: data['Order_Items.Product.productAddress'],
+            productStock: data['Order_Items.Product.productStock'],
+            buyer_address: data['Address.address'],
+            buyer_city_state: data['Address.city_state'],
+            payment_status: data['Order_Items.Order.payment_status']
         }
-        idArray.push(Array.isArray(item.order_id) ? item.order_id : [item.order_id]);
-        calculatedAmount += Number(item.total_amount)
+    })
+
+    // const orderProducts = await Orders.findAll({
+    //     where: { user_id, payment_status: 'unpaid' },
+    //     attributes: ['order_id', 'total_amount', 'payment_status'],
+    //     raw: true
+    // })
+    if (all.length === 0) throw new ApiError(403, "No orders in the list")
+
+    for (let { order_id, total_amount, payment_status } of all) {
+        console.log({ order_id, total_amount })
+        if (payment_status === 'paid') throw new ApiError(400, "Payment already paid")
+        idArray.push(Array.isArray(order_id) ? order_id : [order_id]);
+        calculatedAmount += Number(total_amount)
     }
 
-    calculatedAmount += 40
-    console.log(calculatedAmount)               // Delivery amount 40 add
+    calculatedAmount += 40               // Delivery amount 40 add
     console.log(`User: ${userOrderAmount} | Main: ${calculatedAmount}`)
+
 
     if (Number(userOrderAmount) !== calculatedAmount) {
         console.log('amount false')
         throw new ApiError(404, "Amount is not correct or enough")
     }
 
-    const placeHolder = idArray.map(() => '?').join(',');
-    await orderStatusUpdate("shipped", "paid", "cash", idArray, placeHolder)
+    const updateOrdersStatus = await Orders.update({
+        order_status: 'shipped',
+        payment_status: 'paid',
+        payment_method: 'cash on delivery'
+    }, {
+        where: { order_id: { [Op.in]: idArray } }
+    })
 
-    for (let b of bill) {
-        orderId = generateOrderID()
+    for (let b of all) {
         invoiceId = generateInvoiceID()
-        await createBill(
-            user_id, b.order_item_id, orderId, invoiceId, b.productId, b.seller_address, b.buyer_address, b.buyer_city, b.total_amount, b.snapshot_name
-        )
-        await stockUpdate(b.productId)
+        console.log(b.product_id, 'inside b')
+        await Order_Bill.create({
+            user_id,
+            order_item_id: b.order_item_id,
+            invoiceId,
+            productName: b.itemName,
+            product_id: b.product_id,
+            quantity: b.itemQuantity,
+            seller_address: b.seller_address,
+            buyer_address: b.buyer_address,
+            buyer_city_state: b.buyer_city_state,
+            totalPrice: Number(b.itemPrice),
+        })
+        await Products.update({ productStock: b.productStock - 1 }, { where: { product_id: b.product_id } })
+        await Order_Items.update({ success: 'true' }, { where: { order_item_id: b.order_item_id } })
     }
+    console.log('CASH ON DEL DONE');
     return res
         .status(201)
         .json(new ApiResponse(201, { status: "Delivered" }, "Payment successfully"))
 })
 const getCompletedOrder = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id
-    const allOrders = await responseAllCompleteOrders(user_id)
+    // const allOrders = await responseAllCompleteOrders(user_id)
+    const allOrders = await Order_Items.findAll({ where: { user_id } })
+
+    if (!allOrders) throw new ApiError(404, "No order found")
+
     return res
         .status(201)
         .json(
@@ -128,86 +231,176 @@ const getCompletedOrder = asyncHandler(async (req, res) => {
 const orderBill = asyncHandler(async (req, res) => {
     const { order_item_id } = req.body
 
-    console.log({ order_item_id }, "order bill")
-
     if (!order_item_id) {
         throw new ApiError(400, "order_item_id are required")
     }
 
-    const bill = await getBill(order_item_id)
+    const bill = await Order_Bill.findOne({ where: { order_item_id } }, { raw: true })
+
+    if (!bill) throw new ApiError(404, "No bill found")
+
     return res
         .status(201)
-        .json(new ApiResponse(201, bill, "Bill created"))
+        .json(new ApiResponse(201, bill, "Bill data fetched"))
 })
 const createRazorOrder = asyncHandler(async (req, res) => {
 
-    const { productIds, userAmount } = req.body
+    const { productIds, userAmount, quantity } = req.body
+    console.log({ productIds, userAmount, quantity })
     const user_id = req.user.user_id
 
-    await isUserBlock(user_id)
+    if (!productIds || !userAmount) {
+        throw new ApiError(404, "Product id is required")
+    }
+    // await isUserBlock(user_id)
+    // let amount = 0
+    // let totalOrderProduct = 0
+    // let productDetails = []
 
+    // await updateOldOrder(user_id, 'unpaid')
+    await Orders.update({ payment_status: 'failed' }, { where: { [Op.and]: [{ user_id }, { payment_status: 'unpaid' }] } })
+    const idArray = Array.isArray(productIds) ? productIds : [productIds];
+
+    // const cartItem = await getCartItemByProductId(placeHolder, idArray)
+    const cartItem = await Cart_Items.findAll({
+        where: { [Op.and]: [{ product_id: { [Op.in]: idArray } }, { user_id }] },
+        attributes: ["cart_item_id", 'product_id', 'itemName', 'itemImage', 'itemQuantity', 'itemPrice'],
+        raw: true
+    })
+
+    if (cartItem.length === 0) throw new ApiError(404, "There is no productId with the cart item you have enter",)
+
+    let orders;
+    let createOrderItem;
+
+    let index = 0
+    let addQty;
     let amount = 0
     let totalOrderProduct = 0
     let productDetails = []
 
-    await updateOldOrder(user_id, 'unpaid')
+    for (let item of cartItem) {
+        let newQty = quantity[index] || 1;
+        let price = Number(item.itemPrice)
+        let newTotalPrice = price * newQty;
 
-    const idArray = Array.isArray(productIds) ? productIds : [productIds];
-    const placeHolder = idArray.map(() => '?').join(',')
+        if (newQty !== 1) {
+            console.log('RUN INNER', newQty)
+            // addQty = await Cart_Items.update({
+            //     itemQuantity: Number(newQty),
+            //     itemPrice: newTotalPrice
+            // },
+            //     { where: { cart_item_id: item.cart_item_id } })
 
-    // cart item ke product get
-    const cartItem = await getCartItemByProductId(placeHolder, idArray)
+            await Cart_Items.update(
+                {
+                    itemQuantity: newQty,
+                    itemPrice: newTotalPrice
+                },
+                {
+                    where: { cart_item_id: item.cart_item_id }
+                }
+            );
+            console.log(newQty, price, newTotalPrice, "money")
+        }
+        console.log(newQty, price, newTotalPrice, "money-1")
 
-    for (const item of cartItem) {
+        const orders = await Orders.create({
+            user_id,
+            product_id: item.product_id,
+            total_amount: Number(newTotalPrice),
+            order_status: 'pending',
+            payment_method: 'no data',
+            payment_status: 'unpaid'
+        })
 
-        const itemPrice = Number(item.snapshot_price)
-
-        // create order jisme status and price he
-        const orders = await createOrder(user_id, item.productId, itemPrice, 'unpaid')
-        const orderItems = await getOrderById(orders.insertId)
-
+        const ordersOrder_id = orders.order_id || orders.id;
         // add details in the order_item jaha sare complete order aayege
-        await addOrderItems(user_id, orderItems[0].order_id, item.productId, item.productImageUrl, item.quantity, item.snapshot_name, itemPrice, item.productImageUrl)
+        await Order_Items.create({
+            user_id,
+            order_id: ordersOrder_id,
+            product_id: item.product_id,
+            itemName: item.itemName,
+            itemImage: item.itemImage,
+            itemQuantity: newQty,
+            itemPrice: newTotalPrice,
+            order_status: 'Your item is on the way',
+            success: 'no data',
+        })
         totalOrderProduct += 1
-        amount += itemPrice
-        productDetails.push({ productId: item.productId, productPrice: itemPrice })
+        amount += newTotalPrice
+        productDetails.push({ product_id: item.product_id, productPrice: newTotalPrice })
 
+        index++
     }
+    // =======================================
+    // for (const item of cartItem) {
+    //     console.log(item, "ok")
+    //     const itemPrice = Number(item.itemPrice)
+    //     // create order jisme status and price he
+    //     orders = await Orders.create({
+    //         user_id,
+    //         product_id: item.product_id,
+    //         total_amount: Number(itemPrice),
+    //         order_status: 'pending',
+    //         payment_method: 'no data',
+    //         payment_status: 'unpaid'
+    //     })
+
+    //     const ordersOrder_id = orders.order_id || orders.id;
+
+    //     // add details in the order_item jaha sare complete order aayege
+    //     createOrderItem = await Order_Items.create({
+    //         user_id,
+    //         order_id: ordersOrder_id,
+    //         product_id: item.product_id,
+    //         itemName: item.itemName,
+    //         itemImage: item.itemImage,
+    //         itemQuantity: item.itemQuantity,
+    //         itemPrice,
+    //         order_status: 'Your item is on the way',
+    //         success: 'no data',
+    //     })
+    //     console.log(itemPrice, "IP")
+    //     totalOrderProduct += 1
+    //     amount += itemPrice
+    //     productDetails.push({ product_id: item.product_id, productPrice: itemPrice })
+    // }
     amount += 40
     console.log(`User: ${userAmount} | Main: ${amount}`)
     if (amount !== Number(userAmount)) {
         throw new ApiError(400, "Amount are not enough", ["Enter correct amount"])
     }
-    await deleteCartItem(placeHolder, idArray)
+
+    await Cart_Items.destroy({
+        where: { [Op.and]: [{ product_id: { [Op.in]: idArray } }, { user_id }] }
+    })
+    // await deleteCartItem(placeHolder, idArray)
+    console.log(amount)
 
     const options = ({
         amount: Math.round(amount * 100),
         currency: "INR",
         receipt: `receipt_${Date.now()}`,
     })
-
     try {
         const order = await razorpayInstance.orders.create(options)
         console.log(order, "order")
 
-        // const response = {
-        //     order_id:order.id,
-        //     order
-        // }
-        console.log({ order, totalOrderProduct, productDetails }, "Check out")
+        console.log({ order, totalOrderProduct, productDetails }, "Razorpay Check out")
         return res
             .status(201)
             .json(new ApiResponse(201, { totalOrderProduct, productDetails, order }, "Order check successfully"))
 
     } catch (error) {
-        throw new ApiError(500, "Razorpay order failed", ["Order creation cancelled"]);
+        throw new ApiError(500, "Razorpay order failed", [error]);
     }
 
 })
 const verifyPayment = asyncHandler(async (req, res) => {
 
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body
-
+    console.log({ razorpay_order_id, razorpay_payment_id, razorpay_signature })
     const user_id = req.user.user_id
     let idArray = []
     let orderId = ''
@@ -230,9 +423,49 @@ const verifyPayment = asyncHandler(async (req, res) => {
         throw new ApiError(400, "payment verification failed", ["razorpay_signature does not match"])
     }
 
-    await checkUserAddress(user_id)                         // get bill details
-    const orderProducts = await getOrderByUserId(user_id, 'unpaid')
-    const bill = await billDetailing(user_id)                           // get bill details
+    // await checkUserAddress(user_id)  
+    const checkAddress = await Address.findOne({ where: { user_id }, raw: true })
+    if (!checkAddress) throw new ApiError(400, "Address are required ", ["Enter your address"])
+
+    // get bill details
+    const allCartItems = await User.findAll({
+        where: { user_id },
+        attributes: ["user_id", "firstName", "lastName", "email", "role"],
+        raw: true,
+        include: [
+            {
+                model: Order_Items, attributes: ["order_item_id", "product_id", "itemName", "itemQuantity", "itemPrice"],
+                include: [
+                    { model: Products, attributes: ["productAddress", "productStock"] },
+                    { model: Orders, where: { payment_status: 'unpaid' }, attributes: ["payment_status", "payment_status"] },
+                ]
+            },
+            { model: Address, attributes: ["address", "city_state"] }
+        ],
+        // raw: true
+    })
+    const all = allCartItems.map((data) => {
+        return {
+            user_id: data.user_id,
+            order_item_id: data['Order_Items.order_item_id'],
+            itemName: data['Order_Items.itemName'],
+            itemQuantity: data['Order_Items.itemQuantity'],
+            itemPrice: data['Order_Items.itemPrice'],
+            product_id: data['Order_Items.product_id'],
+            seller_address: data['Order_Items.Product.productAddress'],
+            productStock: data['Order_Items.Product.productStock'],
+            buyer_address: data['Address.address'],
+            buyer_city_state: data['Address.city_state'],
+            payment_status: data['Order_Items.Order.payment_status']
+        }
+    })
+    console.log(allCartItems, "data")
+    // return;
+    const orderProducts = await Orders.findAll({
+        where: { user_id, payment_status: 'unpaid' },
+        attributes: ['order_id', 'total_amount', 'payment_status'],
+        raw: true
+    })                      // get bill details
 
     for (let item of orderProducts) {
         if (item.payment_status === 'paid') {
@@ -241,16 +474,32 @@ const verifyPayment = asyncHandler(async (req, res) => {
         idArray.push(Array.isArray(item.order_id) ? item.order_id : [item.order_id]);
     }
 
+    const updateOrdersStatus = await Orders.update({
+        order_status: 'shipped',
+        payment_status: 'paid',
+        payment_method: 'razor pay'
+    }, {
+        where: { order_id: { [Op.in]: idArray } }
+    })
 
-    const placeHolder = idArray.map(() => '?').join(',');
-    await orderStatusUpdate("shipped", "paid", "razorpay", idArray, placeHolder);
-
-    for (let b of bill) {
-        orderId = generateOrderID()
+    for (let b of all) {
+        console.log(b)
         invoiceId = generateInvoiceID()
-        await createBill(
-            user_id, b.order_item_id, orderId, invoiceId, b.productId, b.seller_address, b.buyer_address, b.buyer_city, b.total_amount, b.snapshot_name
-        )
+        console.log(b.product_id, 'inside b razoar pay')
+        await Order_Bill.create({
+            user_id,
+            order_item_id: b.order_item_id,
+            invoiceId,
+            productName: b.itemName,
+            product_id: b.product_id,
+            quantity: b.itemQuantity,
+            seller_address: b.seller_address,
+            buyer_address: b.buyer_address,
+            buyer_city_state: b.buyer_city_state,
+            totalPrice: Number(b.itemPrice),
+        })
+        await Products.update({ productStock: b.productStock - 1 }, { where: { product_id: b.product_id } })
+        await Order_Items.update({ success: 'true' }, { where: { order_item_id: b.order_item_id } })
     }
     console.log("Razor payment done")
     return res

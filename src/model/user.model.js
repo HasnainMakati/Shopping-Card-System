@@ -4,15 +4,16 @@ import { db } from "../db/index.js";
 
 const findUserByToken = async (user_id) => {
 
-    const [rows] = await db.query("SELECT user_id,email FROM users WHERE user_id = ?", [user_id])
+    const [rows] = await db.query("SELECT user_id,email,role FROM users WHERE user_id = ?", [user_id])
+
     if (rows.length === 0) {
-        throw new ApiError(401, "Decoded token id is not found",)
+        throw new ApiError(401, "User is not found",)
     }
     return rows[0]
 }
-const findUserByEmail = async (email) => {
+const findUserByEmail = async (email, role) => {
 
-    const [rows] = await db.query("SELECT user_id,email,password,role FROM users WHERE email = ?", [email])
+    const [rows] = await db.query("SELECT user_id,email,password,role FROM users WHERE email = ? AND role=?", [email, role])
     if (rows.length === 0) {
         throw new ApiError(401, "No user exists with this email address",)
     }
@@ -28,7 +29,6 @@ const findUserById = async (user_id) => {
 const findExistedUser = async (phone, lowerEmail, role) => {
 
     const [rows] = await db.query("SELECT user_id,email FROM users WHERE (phone = ? OR email = ?) AND role=?", [phone, lowerEmail, role])
-    console.log(rows)
     if (rows.length > 0) {
         throw new ApiError(401, "The email or phone number you entered already exist", ["User"])
     }
@@ -51,12 +51,12 @@ const createUser = async (firstName, lastName, lowerEmail, phone, encryptedPassw
 
     return result
 }
-const getUser = async (user_id) => {
-    const [rows] = await db.query(
-        "SELECT user_id,firstName,lastName,email,phone,gender FROM users WHERE user_id = ?",
-        [user_id]
-    );
+const getUser = async (user_id, role) => {
 
+    const [rows] = await db.query(
+        "SELECT user_id,firstName,lastName,email,phone,gender,role FROM users WHERE user_id = ? AND role=?",
+        [user_id, role]
+    );
     if (rows.length === 0) {
         throw new ApiError(404, "User not exists in database",)
     }

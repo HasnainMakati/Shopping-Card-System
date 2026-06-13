@@ -1,5 +1,5 @@
+-- SET autocommit = 1;
 
--- <====================== USERS TABLE ====================== >
 -- CREATE TABLE users (
 -- user_id INT AUTO_INCREMENT PRIMARY KEY,
 -- firstName VARCHAR(70),
@@ -12,19 +12,7 @@
 -- created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 -- updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 -- );
-
--- <====================== USERS_ADDRESS TABLE ====================== >
--- CREATE TABLE user_address(
--- 	   user_id INT,
--- 	   fullName VARCHAR(100),
---     pincode VARCHAR(30),
---     state VARCHAR(30),
---     city VARCHAR(30),
---     address VARCHAR(200),
---     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
--- );
-
--- <====================== PRODUCTS TABLE ====================== >
+-- /--------------------------------------------------------------/
 -- CREATE TABLE products (
 -- productId INT AUTO_INCREMENT PRIMARY KEY,
 -- user_id INT,
@@ -38,8 +26,7 @@
 -- created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 -- updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 -- );
-
--- <====================== CARTS TABLE ====================== >
+-- /--------------------------------------------------------------/
 -- CREATE TABLE carts (
 -- 	cart_id INT AUTO_INCREMENT PRIMARY KEY,
 --     user_id INT,
@@ -47,8 +34,7 @@
 --     quantity INT DEFAULT 1,
 --     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 -- );
-
--- <====================== ORDERS TABLE ====================== >
+-- /--------------------------------------------------------------/
 -- CREATE TABLE orders (
 --     order_id INT AUTO_INCREMENT PRIMARY KEY,
 --     user_id INT,
@@ -61,7 +47,6 @@
 -- 	FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 -- );
 
--- <====================== CART_ITEM TABLE ====================== >
 --     CREATE TABLE cart_item (
 -- 	   cart_item_id INT AUTO_INCREMENT PRIMARY KEY,
 --     user_id INT,
@@ -74,8 +59,7 @@
 --     FOREIGN KEY (productId) REFERENCES products(productId) ON DELETE CASCADE,
 --     created_ate TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 -- );
-
--- <====================== ORDER_ITEM TABLE ====================== >
+-- /--------------------------------------------------------------/
 -- CREATE TABLE order_item (
 -- 	order_item_id INT AUTO_INCREMENT PRIMARY KEY,
 --     user_id INT,
@@ -89,9 +73,17 @@
 --     FOREIGN KEY (order_id) REFERENCES orders(order_id) ON DELETE CASCADE,
 --     order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 -- )AUTO_INCREMENT = 1001;
-	
--- <====================== ORDER_BILL TABLE ====================== >
--- drop table order_bill;
+	-- /--------------------------------------------------------------/
+-- CREATE TABLE user_address(
+-- 	   user_id INT,
+-- 	   fullName VARCHAR(100),
+--     pincode VARCHAR(30),
+--     state VARCHAR(30),
+--     city VARCHAR(30),
+--     address VARCHAR(200),
+--     FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+-- );	
+-- /--------------------------------------------------------------/
 -- CREATE TABLE order_bill(
 -- 		user_id INT,
 -- 		bill_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -105,7 +97,20 @@
 --         FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
 -- 		bill_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 -- );	
-
+-- /--------------------------------------------------------------/
+-- CREATE TABLE admin (
+-- 	admin_id int auto_increment primary key,
+--     firstName VARCHAR(70),
+-- 	lastName VARCHAR(70) ,
+--     email VARCHAR(150) NOT NULL,
+-- 	phone VARCHAR(30) ,
+-- 	password VARCHAR(150),
+-- 	gender VARCHAR(30),
+-- 	role varchar(20),
+-- 	refreshToken VARCHAR(150),
+--     create_at timestamp default current_timestamp
+-- );
+-- /--------------------------------------------------------------/
 -- SELECT 
 --     oi.snapshot_name,
 --     oi.quantity,
@@ -119,47 +124,86 @@
 -- INNER JOIN orders AS o ON oi.order_id = o.order_id          
 -- INNER JOIN user_address AS u ON o.user_id = u.user_id     
 -- WHERE o.user_id = 9;      
+-- /--------------------------------------------------------------/
+-- DASH BOARD DATA
+-- SELECT 
+--     (SELECT COUNT(*) FROM orders WHERE order_status = 'pending') AS pendingOrders,
+--     (SELECT COUNT(*) FROM products WHERE stock < 10) AS lowStock,
+--     (SELECT COUNT(*) FROM users WHERE ac_status = 'active' AND role = 'user') AS accountActive,
+--     (SELECT COUNT(*) FROM users WHERE role='user') AS totalUsers,
+--     (SELECT COUNT(*) FROM products) AS totalProducts,
+--     (SELECT COUNT(*) FROM orders WHERE order_status='shipped') AS totalOrders,
+-- 	(SELECT COALESCE(SUM(totalPrice), 0) FROM order_bill WHERE bill_date >= DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01')) AS revenue;
+-- /--------------------------------------------------------------/
+-- GRAPH QUERY
+-- SELECT 
+--     MONTHNAME(bill_date) AS monthName,
+--     SUM(totalPrice) AS monthlyRevenue
+-- FROM order_bill
+-- WHERE YEAR(bill_date) = YEAR(CURRENT_DATE()) 
+-- GROUP BY MONTH(bill_date), MONTHNAME(bill_date)
+-- ORDER BY MONTH(bill_date) ASC; 
+    -- /--------------------------------------------------------------/
+-- SELECT u.user_id,u.firstName,
+--     ob.bill_id,ob.orderId,ob.productName,ob.totalPrice,ob.bill_date,o.payment_status 
+--     FROM users AS u INNER JOIN order_bill AS ob ON u.user_id=ob.user_id 
+--     INNER JOIN orders AS o ON o.user_id = ob.user_id WHERE o.payment_status='paid' GROUP BY ob.bill_id;
 
--- select * from products;
+-- /--------------------------------------------------------------/
+-- select u.user_id, u.firstName,u.lastName,u.email,created_at,
+-- COUNT(ob.order_item_id) as total_orders,SUM(ob.totalPrice) as total_price
+-- from users as u inner join order_bill as ob on u.user_id=ob.user_id group by u.user_id;
+-- /--------------------------------------------------------------/
 
-
-
-
+-- select * from users;
 -- select * from orders;
 -- select * from order_item;
--- select * from cart_item;
--- select * from carts;
+-- select * from cart_item;	
+-- select * from products;
 -- select * from user_address;
-
--- select * from order_bill; 
--- select * from users;
-
 -- select * from order_bill;
--- /======================= TESTING QUERY ===================================/
--- ALTER TABLE order_bill MODIFY COLUMN order_item_id INT AFTER bill_id;
--- ALTER TABLE order_item MODIFY COLUMN user_id INT AFTER order_item_id;
 
--- alter table order_bill add column order_item_id INT;
+-- /==========================================================/
+
+-- alter table users add column role varchar(20);
+-- ALTER TABLE users MODIFY COLUMN role varchar(20) AFTER gender;
+-- SELECT productName,productImageUrl,productPrice,productType FROM products;
+-- update users set role='user' where user_id between 1 and 20;
+
 -- alter table orders drop column shipping_address;
--- alter table order_item add column productImageUrl VARCHAR(200);
--- alter table orders add column total_amount decimal(10,2);
--- alter table order_item add column user_id INT;
+-- update cart_item set
+-- snapshot_price = 1500.80
+-- where productId = 41;
+
+-- ALTER TABLE order_item MODIFY COLUMN user_id INT AFTER order_item_id;
+-- select * from products;
+
+-- ROLLBACK;
 -- alter table order_item add column status varchar(30) default 'Your item is on the way'; 
 -- alter table order_bill drop column seller_address;
--- alter table order_item drop column total_amount;
-
--- update cart_item set snapshot_price = 1500.80 where productId = 41;
--- update orders set payment_status = 'unpaid' where order_id in (102,103,104);
--- update orders set payment_status = 'unpaid' where order_id in (102,103,104);
-
-
--- DELETE FROM orders WHERE user_id =12 AND payment_status='unpaid';
+-- ROLLBACK;
+-- COMMIT;
 -- delete from user_address where user_id = 12;
 -- delete from orders where order_id between 8 and 59;
+-- DELETE FROM orders WHERE user_id =12 AND payment_status='unpaid';
+
+-- select * from user_address;
+-- select * from products;
+-- update orders set payment_status = 'unpaid' where order_id in (102,103,104);
+-- ROLLBACK;
 -- delete from orders where order_id between 90 AND 96;
 -- delete from order_item where order_item_id between 1022 AND 1028;
+-- select * from users;
+-- alter table order_item add column productImageUrl VARCHAR(200);
+
+-- update orders set payment_status = 'unpaid' where order_id in (102,103,104);
 -- delete from orders where order_id = 1;
 -- delete from order_item where order_item_id between 1022 AND 1028;
+-- alter table orders add column total_amount decimal(10,2);
+-- alter table order_item drop column total_amount;
 -- delete from orders where order_id between 41 and 44;
 -- delete from order_item where order_item_id between 1041 and 1044;
 -- delete from user_address where user_id = 12;
+-- alter table order_item add column user_id INT;
+
+

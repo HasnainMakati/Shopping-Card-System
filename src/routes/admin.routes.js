@@ -1,12 +1,12 @@
 import { Router } from "express"
 import {
-    addProduct, deleteUser, editProduct, getAllBill, getAllInVoice, getAllOrders, getAllProducts, getAllUser, removeProduct,
+    addProduct, deleteUser, editProduct, getAllBill, getAllInVoice, getAllOrders, getAllProducts, getAllUser, graphData, operationalHighlight, removeProduct,
     setUserAccountBlock
 } from "../controllers/admin.controllers.js";
 const router = Router()
 import { verifyUserWithToken } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/multer.middleware.js";
-
+// import { loginUser } from "../controllers/user.controllers.js";
 
 router.route("/add-product").post(verifyUserWithToken, upload.single('productImage'), addProduct)
 router.route("/edit-product").post(verifyUserWithToken, upload.single('productImage'), editProduct)
@@ -19,8 +19,7 @@ router.route("/get-products").get(verifyUserWithToken, getAllProducts)
 router.route("/get-orders").get(verifyUserWithToken, getAllOrders)
 router.route("/get-invoice").get(verifyUserWithToken, getAllInVoice)
 router.route("/get-bill").post(verifyUserWithToken, getAllBill)
-// router.route("/get-products").get(verifyUserWithToken, getAllProducts)
-// router.route("/get-products").get(verifyUserWithToken, getAllProducts)
-
+router.route("/get-operationl-highlight").get(verifyUserWithToken, operationalHighlight)
+router.route("/get-graph-data").get(verifyUserWithToken, graphData)
 
 export default router

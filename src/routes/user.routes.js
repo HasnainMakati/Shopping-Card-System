@@ -2,12 +2,14 @@ import { Router } from "express"
 import {
     loginUser, logoutUser, registerUser, editUser,
     refreshAccessToken, userAddressDetails,
+    checkUserTest,
 } from "../controllers/user.controllers.js";
 import { verifyUserWithToken } from "../middleware/auth.middleware.js";
 
 const router = Router()
 
 
+router.route("/check").get(checkUserTest)
 router.route("/register-user").post(registerUser)
 router.route("/login-user").post(loginUser)
 router.route("/logout-user").post(verifyUserWithToken, logoutUser)
