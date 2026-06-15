@@ -1,19 +1,10 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-
-import {
-    allBill, allInVoice, allOrders, allProducts, allUser, findAdmin,
-    // graphOverview,
-    shopHiglight
-} from "../model/admin.model.js";
-// import {
-//     createProduct, getProduct, isProductExists, updateProduct, productFindById, deleteProduct,
-// } from "../model/product.model.js";
 import { userAccountStatusUpdate, userDeleteById } from "../model/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { Products } from "../model/products.model.js";
-import { Op } from "sequelize";
+import { DATE, Op } from "sequelize";
 import { User } from "../model/users.model.js";
 import { Orders } from "../model/orders.model.js";
 import { Order_Items } from "../model/order-item.model.js";
@@ -25,7 +16,6 @@ const checkAdmin = async (adminId) => {
         where: { [Op.and]: [{ user_id: adminId }, { role: 'admin' }] },
         raw: true
     })
-    console.log(result, "Admin")
     if (!result) throw new ApiError(400, "There are no admin in the database")
 
     return true;
@@ -33,11 +23,11 @@ const checkAdmin = async (adminId) => {
 const addProduct = asyncHandler(async (req, res) => {
 
     const user_id = req.user.user_id
-
     // product_id, productName, productType, productPrice, productStock, productAddress, productImage, createdAt, updatedAt, user_id
 
     const { productType, productName, productDetails, productPrice, productAddress, productStock } = req.body
 
+    await checkAdmin(user_id)
 
     if ([productType, productName, productDetails, productPrice, productAddress].some((fields) => !fields || fields.trim() === "")) {
         throw new ApiError(400, "All fields are required")
@@ -92,13 +82,15 @@ const addProduct = asyncHandler(async (req, res) => {
         )
 })
 const editProduct = asyncHandler(async (req, res) => {
-    const { productId, productType, productName, productDetails, productPrice, productAddress } = req.body
-    const productStock = req.body.productStock
+    const { productId, productType, productName, productDetails, productPrice, productAddress, productStock } = req.body
+    const user_id = req.user.user_id
+
 
     if ([productType, productName, productDetails, productAddress].some((fields) => !fields || fields.trim() === "") || !productPrice) {
         throw new ApiError(400, "All fields are required")
     }
 
+    await checkAdmin(user_id)
     if (!productStock) {
         throw new ApiError(400, "productStock are required")
     }
@@ -135,11 +127,13 @@ const editProduct = asyncHandler(async (req, res) => {
 })
 const removeProduct = asyncHandler(async (req, res) => {
     const { productId } = req.body
+    const user_id = req.user.user_id
 
     if (!productId) {
         throw new ApiError(400, "ProductId is required")
     }
 
+    await checkAdmin(user_id)
     await Products.destroy({ where: { product_id } })
     console.log(productId, 'Del')
     return res
@@ -153,11 +147,12 @@ const setUserAccountBlock = asyncHandler(async (req, res) => {
     const adminId = req.user.user_id
 
     // await findAdmin(adminId)
-    await checkAdmin(adminId)
 
     if (!user_id || !ac_status) {
         throw new ApiError(400, "user_id or ac_status is required")
     }
+
+    await checkAdmin(adminId)
 
     const setStatus = ac_status === 'block' ?
         await User.update({ ac_status: 'block' }, { where: { user_id } }) :
@@ -187,16 +182,44 @@ const deleteUser = asyncHandler(async (req, res) => {
         .json(new ApiResponse(201, {}, `User ${user_id} is deleted`))
 })
 const getAllUser = asyncHandler(async (req, res) => {
-    const users = await User.findAll({ attributes: { exclude: ["password", "refreshToken", "createdAt", "updatedAt"] } })
+    const user_id = req.user.user_id
+    await checkAdmin(user_id)
+
+    const users = await User.findAll({ attributes: { exclude: ["password", "refreshToken", "updatedAt"] } })
+
+    const bills = await Order_Bill.findAll({ raw: true })
+
+    const countingData = bills.reduce((acc, cur) => {
+        const userId = cur.user_id;
+        const price = Number(cur.totalPrice) || 0;
+
+        if (!acc[userId]) {
+            acc[userId] = {
+                user_id: userId,
+                totalOrders: 0,
+                totalAmount: 0
+            };
+        }
+
+        acc[userId].totalOrders += 1;
+        acc[userId].totalAmount += price;
+
+        return acc
+    }, {})
+
     if (!users) throw new ApiError(404, "Users not found")
+
     console.log('AU')
     return res
         .status(201)
         .json(
-            new ApiResponse(201, users, "All users fetched")
+            new ApiResponse(201, { users, countingData }, "All users fetched")
         )
 })
 const getAllProducts = asyncHandler(async (req, res) => {
+    const user_id = req.user.user_id
+    await checkAdmin(user_id)
+
     const products = await Products.findAll()
     if (!products) throw new ApiError(404, "Products not found")
 
@@ -206,7 +229,18 @@ const getAllProducts = asyncHandler(async (req, res) => {
         .json(new ApiResponse(201, products, "All products fetched"))
 })
 const getAllOrders = asyncHandler(async (req, res) => {
-    const orders = await Orders.findAll()
+    const user_id = req.user.user_id
+    await checkAdmin(user_id)
+
+    const orders = await Orders.findAll({
+        where: { payment_status: 'paid' },
+        attributes: ["order_id", "total_amount", "order_status", "createdAt"],
+        include: [{
+            model: Order_Items,
+            include: [{ model: User, attributes: ["firstName", "lastName"] }],
+            attributes: ["user_id"]
+        }]
+    })
     if (!orders) throw new ApiError(404, "Orders not found")
     console.log('AO')
     return res
@@ -216,17 +250,18 @@ const getAllOrders = asyncHandler(async (req, res) => {
         )
 })
 const getAllInVoice = asyncHandler(async (req, res) => {
+    const user_id = req.user.user_id
+    await checkAdmin(user_id)
 
-    const inVoicesData = await User.findAndCountAll({
+    const inVoicesData = await User.findAll({
         attributes: ["user_id", "firstName", "lastName", "role"],
-        include: [
-            {
-                model: Order_Items, attributes: ["itemName", "itemPrice"],
-                include: [
-                    { model: Orders, attributes: ["order_id", "payment_status", "product_id"], where: { payment_status: 'paid' } },
-                    { model: Order_Bill, attributes: ["bill_id", "bill_date"] }]
-            },
-        ]
+        where: { role: 'user' },
+        include: [{
+            model: Order_Items, attributes: ["itemName", "itemPrice"],
+            include: [
+                { model: Orders, attributes: ["order_id", "payment_status", "product_id"], where: { payment_status: 'paid' } },
+                { model: Order_Bill, attributes: ["user_id", "invoiceId", "bill_id", "bill_date"] }]
+        }]
     })
     return res
         .status(201)
@@ -235,6 +270,8 @@ const getAllInVoice = asyncHandler(async (req, res) => {
 })
 const getAllBill = asyncHandler(async (req, res) => {
     const { order_item_id } = req.body
+    const user_id = req.user.user_id
+    await checkAdmin(user_id)
 
     if (!order_item_id) {
         throw new ApiError(400, "orderId is required")
@@ -250,27 +287,50 @@ const getAllBill = asyncHandler(async (req, res) => {
 })
 const operationalHighlight = asyncHandler(async (req, res) => {
 
-    const response = await shopHiglight()
-    console.log('AH')
-    return res
-        .status(201)
-        .json(
-            new ApiResponse(201, response, "All data fetched")
-        )
-})
-const graphData = asyncHandler(async (req, res) => {
+    const user_id = req.user.user_id
 
-    const response = await graphOverview()
-    console.log('AG')
-    return res
-        .status(201)
-        .json(
-            new ApiResponse(201, response, "All data fetched")
-        )
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+    let month = `${startOfMonth}`.split(" ")[1]
+
+    await checkAdmin(user_id)
+
+    try {
+        const [pendingOrders, totalOrders, lowStock, totalProduct, activeAccount, totalUsers, revenue] = await Promise.all([
+            Orders.count({ col: 'order_status', where: { order_status: 'pending' } }),
+            Orders.count({ col: 'order_status', where: { order_status: 'shipped' } }),
+            Products.count({ col: 'productStock', where: { productStock: { [Op.lt]: 10 } } }),
+            Products.count({ col: "product_id" }),
+            User.count({ col: 'ac_status', where: { ac_status: 'active' } }),
+            User.count({ col: "user_id" }),
+            Order_Bill.sum("totalPrice", { where: { bill_date: { [Op.gte]: startOfMonth } } })
+        ])
+
+        console.log('AH')
+
+        return res
+            .status(201)
+            .json(
+                new ApiResponse(201,
+                    {
+                        pendingOrders,
+                        totalOrders,
+                        lowStock,
+                        totalProduct,
+                        activeAccount,
+                        totalUsers,
+                        revenue: (revenue * 10) / 100,
+                        month
+                    }, "All data fetched")
+            )
+    } catch (error) {
+        throw new ApiError(500, "Something went wrong while we get data from the database", [error.message])
+    }
+
 })
 
 export {
     addProduct, editProduct, removeProduct, setUserAccountBlock, deleteUser,
     getAllUser, getAllProducts, getAllOrders, getAllInVoice, getAllBill,
-    operationalHighlight, graphData
+    operationalHighlight
 }

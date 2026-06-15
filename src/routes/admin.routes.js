@@ -1,6 +1,6 @@
 import { Router } from "express"
 import {
-    addProduct, deleteUser, editProduct, getAllBill, getAllInVoice, getAllOrders, getAllProducts, getAllUser, graphData, operationalHighlight, removeProduct,
+    addProduct, deleteUser, editProduct, getAllBill, getAllInVoice, getAllOrders, getAllProducts, getAllUser, operationalHighlight, removeProduct,
     setUserAccountBlock
 } from "../controllers/admin.controllers.js";
 const router = Router()
@@ -19,7 +19,6 @@ router.route("/get-products").get(verifyUserWithToken, getAllProducts)
 router.route("/get-orders").get(verifyUserWithToken, getAllOrders)
 router.route("/get-invoice").get(verifyUserWithToken, getAllInVoice)
 router.route("/get-bill").post(verifyUserWithToken, getAllBill)
-router.route("/get-operationl-highlight").get(verifyUserWithToken, operationalHighlight)
-router.route("/get-graph-data").get(verifyUserWithToken, graphData)
+router.route("/get-operational-highlight").get(verifyUserWithToken, operationalHighlight)
 
 export default router

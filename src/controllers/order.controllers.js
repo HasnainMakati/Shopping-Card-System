@@ -252,16 +252,10 @@ const createRazorOrder = asyncHandler(async (req, res) => {
     if (!productIds || !userAmount) {
         throw new ApiError(404, "Product id is required")
     }
-    // await isUserBlock(user_id)
-    // let amount = 0
-    // let totalOrderProduct = 0
-    // let productDetails = []
 
-    // await updateOldOrder(user_id, 'unpaid')
     await Orders.update({ payment_status: 'failed' }, { where: { [Op.and]: [{ user_id }, { payment_status: 'unpaid' }] } })
     const idArray = Array.isArray(productIds) ? productIds : [productIds];
 
-    // const cartItem = await getCartItemByProductId(placeHolder, idArray)
     const cartItem = await Cart_Items.findAll({
         where: { [Op.and]: [{ product_id: { [Op.in]: idArray } }, { user_id }] },
         attributes: ["cart_item_id", 'product_id', 'itemName', 'itemImage', 'itemQuantity', 'itemPrice'],
@@ -270,14 +264,11 @@ const createRazorOrder = asyncHandler(async (req, res) => {
 
     if (cartItem.length === 0) throw new ApiError(404, "There is no productId with the cart item you have enter",)
 
-    let orders;
-    let createOrderItem;
-
-    let index = 0
+    let index = 0;
     let addQty;
-    let amount = 0
-    let totalOrderProduct = 0
-    let productDetails = []
+    let amount = 0;
+    let totalOrderProduct = 0;
+    let productDetails = [];
 
     for (let item of cartItem) {
         let newQty = quantity[index] || 1;
@@ -286,12 +277,6 @@ const createRazorOrder = asyncHandler(async (req, res) => {
 
         if (newQty !== 1) {
             console.log('RUN INNER', newQty)
-            // addQty = await Cart_Items.update({
-            //     itemQuantity: Number(newQty),
-            //     itemPrice: newTotalPrice
-            // },
-            //     { where: { cart_item_id: item.cart_item_id } })
-
             await Cart_Items.update(
                 {
                     itemQuantity: newQty,
@@ -303,8 +288,6 @@ const createRazorOrder = asyncHandler(async (req, res) => {
             );
             console.log(newQty, price, newTotalPrice, "money")
         }
-        console.log(newQty, price, newTotalPrice, "money-1")
-
         const orders = await Orders.create({
             user_id,
             product_id: item.product_id,
@@ -333,39 +316,7 @@ const createRazorOrder = asyncHandler(async (req, res) => {
 
         index++
     }
-    // =======================================
-    // for (const item of cartItem) {
-    //     console.log(item, "ok")
-    //     const itemPrice = Number(item.itemPrice)
-    //     // create order jisme status and price he
-    //     orders = await Orders.create({
-    //         user_id,
-    //         product_id: item.product_id,
-    //         total_amount: Number(itemPrice),
-    //         order_status: 'pending',
-    //         payment_method: 'no data',
-    //         payment_status: 'unpaid'
-    //     })
 
-    //     const ordersOrder_id = orders.order_id || orders.id;
-
-    //     // add details in the order_item jaha sare complete order aayege
-    //     createOrderItem = await Order_Items.create({
-    //         user_id,
-    //         order_id: ordersOrder_id,
-    //         product_id: item.product_id,
-    //         itemName: item.itemName,
-    //         itemImage: item.itemImage,
-    //         itemQuantity: item.itemQuantity,
-    //         itemPrice,
-    //         order_status: 'Your item is on the way',
-    //         success: 'no data',
-    //     })
-    //     console.log(itemPrice, "IP")
-    //     totalOrderProduct += 1
-    //     amount += itemPrice
-    //     productDetails.push({ product_id: item.product_id, productPrice: itemPrice })
-    // }
     amount += 40
     console.log(`User: ${userAmount} | Main: ${amount}`)
     if (amount !== Number(userAmount)) {
@@ -375,7 +326,7 @@ const createRazorOrder = asyncHandler(async (req, res) => {
     await Cart_Items.destroy({
         where: { [Op.and]: [{ product_id: { [Op.in]: idArray } }, { user_id }] }
     })
-    // await deleteCartItem(placeHolder, idArray)
+
     console.log(amount)
 
     const options = ({

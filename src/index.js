@@ -28,8 +28,8 @@ Order_Items.belongsTo(User, { foreignKey: "user_id" })
 Orders.hasMany(Order_Items, { foreignKey: "order_id", onDelete: "CASCADE" })
 Order_Items.belongsTo(Orders, { foreignKey: "order_id" })
 
-Products.hasMany(Order_Items, { foreignKey: "product_id" })
-Order_Items.belongsTo(Products, { foreignKey: "product_id" })
+// Products.hasMany(Order_Items, { foreignKey: "product_id" })
+// Order_Items.belongsTo(Products, { foreignKey: "product_id" })
 
 Order_Items.hasMany(Order_Bill, { foreignKey: "order_item_id" })
 Order_Bill.belongsTo(Order_Items, { foreignKey: "order_item_id" })
