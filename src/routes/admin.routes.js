@@ -1,7 +1,7 @@
 import { Router } from "express"
 import {
     addProduct, deleteUser, editProduct, getAllBill, getAllInVoice, getAllOrders, getAllProducts, getAllUser, operationalHighlight, removeProduct,
-    setUserAccountBlock
+    setUserAccountBlock, graphData
 } from "../controllers/admin.controllers.js";
 const router = Router()
 import { verifyUserWithToken } from "../middleware/auth.middleware.js";
@@ -20,5 +20,6 @@ router.route("/get-orders").get(verifyUserWithToken, getAllOrders)
 router.route("/get-invoice").get(verifyUserWithToken, getAllInVoice)
 router.route("/get-bill").post(verifyUserWithToken, getAllBill)
 router.route("/get-operational-highlight").get(verifyUserWithToken, operationalHighlight)
+router.route("/graph-data").get(verifyUserWithToken, graphData)
 
 export default router

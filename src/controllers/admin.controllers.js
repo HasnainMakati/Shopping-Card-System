@@ -1,15 +1,13 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { userAccountStatusUpdate, userDeleteById } from "../model/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { Products } from "../model/products.model.js";
-import { DATE, Op } from "sequelize";
+import { Op } from "sequelize";
 import { User } from "../model/users.model.js";
 import { Orders } from "../model/orders.model.js";
 import { Order_Items } from "../model/order-item.model.js";
 import { Order_Bill } from "../model/order_bill.model.js";
-import { sequelize } from "../db/index.js";
 
 const checkAdmin = async (adminId) => {
     const result = await User.findOne({
@@ -39,7 +37,7 @@ const addProduct = asyncHandler(async (req, res) => {
 
     const existedProducts = await Products.findOne({
         where: {
-            [Op.or]: [{ productName }, { productType }]
+            [Op.and]: [{ productName }, { productType }]
         },
         attributes: ["product_id"],
         raw: true
@@ -126,16 +124,16 @@ const editProduct = asyncHandler(async (req, res) => {
         )
 })
 const removeProduct = asyncHandler(async (req, res) => {
-    const { productId } = req.body
-    const user_id = req.user.user_id
+    console.log(req.body);
+    const { product_id, user_id } = req.body
 
-    if (!productId) {
+    if (!product_id) {
         throw new ApiError(400, "ProductId is required")
     }
 
     await checkAdmin(user_id)
     await Products.destroy({ where: { product_id } })
-    console.log(productId, 'Del')
+    console.log(product_id, 'Del')
     return res
         .status(201)
         .json(new ApiResponse(201, "Product deleted"))
@@ -197,12 +195,12 @@ const getAllUser = asyncHandler(async (req, res) => {
             acc[userId] = {
                 user_id: userId,
                 totalOrders: 0,
-                totalAmount: 0
+                totalSpend: 0
             };
         }
 
         acc[userId].totalOrders += 1;
-        acc[userId].totalAmount += price;
+        acc[userId].totalSpend += price;
 
         return acc
     }, {})
@@ -218,10 +216,15 @@ const getAllUser = asyncHandler(async (req, res) => {
 })
 const getAllProducts = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id
+    // const { page } = req.query
+
     await checkAdmin(user_id)
 
+    // let p = Number(page)
+
     const products = await Products.findAll()
-    if (!products) throw new ApiError(404, "Products not found")
+    // const products = await Products.findAll({ limit: 10, offset: p * 10 })
+    if (!products || products.length === 0) throw new ApiError(404, "Products not found")
 
     console.log('AP')
     return res
@@ -232,15 +235,17 @@ const getAllOrders = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id
     await checkAdmin(user_id)
 
-    const orders = await Orders.findAll({
-        where: { payment_status: 'paid' },
-        attributes: ["order_id", "total_amount", "order_status", "createdAt"],
+
+    const orders = await User.findAll({
+        attributes: ["user_id", "firstName", "lastName"],
+        raw: true,
         include: [{
-            model: Order_Items,
-            include: [{ model: User, attributes: ["firstName", "lastName"] }],
-            attributes: ["user_id"]
+            model: Orders,
+            attributes: ["order_id", "total_amount", "order_status", "payment_status", "createdAt"],
+            where: { payment_status: 'paid' },
         }]
     })
+
     if (!orders) throw new ApiError(404, "Orders not found")
     console.log('AO')
     return res
@@ -269,14 +274,15 @@ const getAllInVoice = asyncHandler(async (req, res) => {
 
 })
 const getAllBill = asyncHandler(async (req, res) => {
-    const { order_item_id } = req.body
+    const { invoiceId } = req.body
+    console.log(invoiceId)
     const user_id = req.user.user_id
     await checkAdmin(user_id)
 
-    if (!order_item_id) {
-        throw new ApiError(400, "orderId is required")
+    if (!invoiceId) {
+        throw new ApiError(400, "Invoice Id is required")
     }
-    const bill = await Order_Bill.findOne({ where: { order_item_id } })
+    const bill = await Order_Bill.findOne({ where: { invoiceId } })
     if (!bill) { throw new ApiError(404, "Orders bill no found with this order_item_id") }
     console.log('AB')
     return res
@@ -328,9 +334,54 @@ const operationalHighlight = asyncHandler(async (req, res) => {
     }
 
 })
+const graphData = asyncHandler(async (req, res) => {
 
+    const user_id = req.user.user_id
+    await checkAdmin(user_id)
+
+    const bill = await Order_Bill.findAll({ attributes: ["totalPrice", "bill_date"], raw: true })
+
+    const result = bill.reduce((acc, cur) => {
+        const monthNumber = new Date(cur.bill_date).getMonth() + 1;
+        const price = Number(cur.totalPrice);
+
+        let existing = acc.find(item => item.month === monthNumber);
+
+        if (existing) {
+            existing.revenue += price;
+        } else {
+            acc.push({
+                month: monthNumber,
+                revenue: price
+            });
+        }
+
+        return acc;
+    }, []);
+
+
+    console.log('AH')
+
+    return res
+        .status(201)
+        .json(new ApiResponse(201, result, "ok"))
+
+})
+const testUser = asyncHandler(async (req, res) => {
+
+    const { page } = req.query
+
+    const result = Number(page) * 10
+    const user = await Products.findAll({ limit: 10, offset: result }, { raw: true })
+
+    return res
+        .status(201)
+        .json(
+            new ApiResponse(201, user, `User Response`)
+        )
+})
 export {
     addProduct, editProduct, removeProduct, setUserAccountBlock, deleteUser,
     getAllUser, getAllProducts, getAllOrders, getAllInVoice, getAllBill,
-    operationalHighlight
+    operationalHighlight, testUser, graphData
 }

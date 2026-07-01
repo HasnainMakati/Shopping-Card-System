@@ -48,7 +48,7 @@ const User = sequelize.define(
             required: true,
             type: DataTypes.STRING,
             validate: {
-                len: [6, 20]
+                len: [6, 100]
             }
         },
         gender: {

@@ -4,9 +4,10 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { User } from "../model/users.model.js";
-import { Op, where } from "sequelize";
+import { Op } from "sequelize";
 import { Address } from "../model/address.model.js";
-import { Products } from "../model/products.model.js";
+import crypto from "crypto";
+import { Otp } from "../model/otps.model.js";
 
 const generateAccessAndRefreshToken = async (user_id) => {
     try {
@@ -19,8 +20,8 @@ const generateAccessAndRefreshToken = async (user_id) => {
         await user.save();
         // console.log(accessToken, refreshToken, "token")
 
-
         return { accessToken, refreshToken }
+
     } catch (error) {
         throw new ApiError(500, "Token generate failed",
             [{
@@ -29,15 +30,6 @@ const generateAccessAndRefreshToken = async (user_id) => {
             }])
     }
 }
-const checkUserTest = asyncHandler(async (req, res) => {
-    const user = await User.findByPk(3, {
-        attributes: {
-            exclude: ['password', 'refreshToken']
-        }
-    })
-    console.log(user.user_id)
-    return res.json(user)
-})
 const registerUser = asyncHandler(async (req, res) => {
     console.log(req.body, "BODY")
     const { firstName, lastName, email, phone, password, gender, role } = req.body
@@ -55,8 +47,6 @@ const registerUser = asyncHandler(async (req, res) => {
     if (existedUser) {
         throw new ApiError(400, "User already existed")
     }
-
-    // const encryptedPassword = await bcrypt.hash(password, 10)
 
     let lowerRole = 'user';
     if (role === process.env.ROLE_SECRET_KEY) {
@@ -248,7 +238,77 @@ const userAddressDetails = asyncHandler(async (req, res) => {
         .status(201)
         .json(new ApiResponse(201, response, "Address added"))
 })
+const generateOTP = () => {
+    return crypto.randomInt(100000, 1000000);
+};
+const sendOtp = asyncHandler(async (req, res) => {
+    const { email } = req.body
+    const user_id = req.user.user_id
+
+    if (!email) throw new ApiError(400, "Email are required")
+
+    const user = await User.findOne({
+        where: {
+            [Op.and]: [{ user_id }, { email }]
+        },
+        raw: true
+    })
+
+    if (!user) throw new ApiError(400, "There are no user that you enter email ")
+
+    const otp = generateOTP()
+
+    await Otp.create({ user_id, otp_num: String(otp) })
+
+    console.log("Your 6-Digit OTP:", otp);
+
+    return res
+        .status(201)
+        .json(
+            new ApiResponse(201, otp, "Otp verification")
+        )
+})
+const otpVerification = asyncHandler(async (req, res) => {
+    const { otp } = req.body
+
+    if (!otp) throw new ApiError(400, "Enter otp number")
+
+    const checkOtp = await Otp.findOne({ where: { otp_num: otp } })
+
+    if (checkOtp.length === 0) throw new ApiError(401, "Invalid Otp")
+
+    return res
+        .status(201)
+        .json(new ApiResponse(201, "Otp verification Successful"))
+})
+const newPassword = asyncHandler(async (req, res) => {
+
+    const { password, confirmPassword } = req.body
+    const user_id = req.user.user_id
+
+    const date = String(new Date())
+
+    const user = await User.findOne({ where: { user_id }, attributes: ["updatedAt"], raw: true })
+
+    let lastUpdate = String(user.updatedAt)
+
+    if (date.slice(0, 16) === lastUpdate.slice(0, 16)) {
+        throw new ApiError(400, "Your today Password updation limit is over")
+    }
+    console.log({ password, confirmPassword })
+
+    if (!password || !confirmPassword) throw new ApiError(400, "All field are required")
+    if (password !== confirmPassword) throw new ApiError(400, "Password does not match")
+
+
+    await User.update({ password: confirmPassword }, { where: { user_id }, individualHooks: true })
+
+    return res
+        .status(201)
+        .json(new ApiResponse(201, "Password Updated Successfully"))
+
+})
 
 export {
-    registerUser, loginUser, logoutUser, refreshAccessToken, editUser, userAddressDetails, checkUserTest
+    registerUser, loginUser, logoutUser, refreshAccessToken, editUser, userAddressDetails, sendOtp, otpVerification, newPassword
 }

@@ -59,3 +59,15 @@ LOGOUT  ( USER CONTROLLERS ):
 C:\Program Files\MySQL\MySQL Workbench 8.0>cd "C:\Program Files\MySQL\MySQL Workbench 8.0"
 
 C:\Program Files\MySQL\MySQL Workbench 8.0>MySQLWorkbench.exe
+
+CRUD Operations
+Validations
+Hooks (password hashing)
+Associations
+Loading (include)
+Pagination (limit, offset)
+    
+Migrations
+Transactions
+Raw Queries
+Advanced Sequelize (Scopes, Indexes, Paranoid, BulkCreate)      
