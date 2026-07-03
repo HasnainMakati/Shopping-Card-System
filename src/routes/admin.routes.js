@@ -9,7 +9,7 @@ import { upload } from "../middleware/multer.middleware.js";
 // import { loginUser } from "../controllers/user.controllers.js";
 
 router.route("/add-product").post(verifyUserWithToken, upload.single('productImage'), addProduct)
-router.route("/edit-product").post(verifyUserWithToken, upload.single('productImage'), editProduct)
+router.route("/edit-product").put(verifyUserWithToken, upload.single('productImage'), editProduct)
 router.route("/delete-product").delete(verifyUserWithToken, removeProduct)
 router.route("/set-block").post(verifyUserWithToken, setUserAccountBlock)
 router.route("/delete-user").delete(verifyUserWithToken, deleteUser)

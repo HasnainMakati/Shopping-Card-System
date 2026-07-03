@@ -8,6 +8,7 @@ import { Op } from "sequelize";
 import { Address } from "../model/address.model.js";
 import crypto from "crypto";
 import { Otp } from "../model/otps.model.js";
+import { sendEmail } from "../service/emailConfig.js";
 
 const generateAccessAndRefreshToken = async (user_id) => {
     try {
@@ -31,7 +32,7 @@ const generateAccessAndRefreshToken = async (user_id) => {
     }
 }
 const registerUser = asyncHandler(async (req, res) => {
-    console.log(req.body, "BODY")
+
     const { firstName, lastName, email, phone, password, gender, role } = req.body
 
     if ([firstName, lastName, email, phone, password, gender, role].some((fields) => !fields || fields.trim() === "")) {
@@ -72,6 +73,7 @@ const registerUser = asyncHandler(async (req, res) => {
 })
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password, role } = req.body
+    
     if (!email || !password || !role) {
         throw new ApiError(400, "All fields are required ")
     }
@@ -243,29 +245,20 @@ const generateOTP = () => {
 };
 const sendOtp = asyncHandler(async (req, res) => {
     const { email } = req.body
-    const user_id = req.user.user_id
+    // const user_id = req.user.user_id
 
     if (!email) throw new ApiError(400, "Email are required")
 
-    const user = await User.findOne({
-        where: {
-            [Op.and]: [{ user_id }, { email }]
-        },
-        raw: true
-    })
-
-    if (!user) throw new ApiError(400, "There are no user that you enter email ")
-
     const otp = generateOTP()
 
-    await Otp.create({ user_id, otp_num: String(otp) })
-
+    await Otp.create({ otp_num: String(otp) })
+    await sendEmail(email,otp)                                                                                                                                             
     console.log("Your 6-Digit OTP:", otp);
 
     return res
         .status(201)
         .json(
-            new ApiResponse(201, otp, "Otp verification")
+            new ApiResponse(201,"Otp verification")
         )
 })
 const otpVerification = asyncHandler(async (req, res) => {
@@ -278,30 +271,28 @@ const otpVerification = asyncHandler(async (req, res) => {
     if (checkOtp.length === 0) throw new ApiError(401, "Invalid Otp")
 
     return res
-        .status(201)
-        .json(new ApiResponse(201, "Otp verification Successful"))
+        .status(200)
+        .json(new ApiResponse(200, "Otp verification Successful"))
 })
 const newPassword = asyncHandler(async (req, res) => {
 
-    const { password, confirmPassword } = req.body
-    const user_id = req.user.user_id
+    const { email, password } = req.body
 
+    console.log(email)
     const date = String(new Date())
 
-    const user = await User.findOne({ where: { user_id }, attributes: ["updatedAt"], raw: true })
+    const user = await User.findOne({ where: { email }, attributes: ["updatedAt"], raw: true })
 
     let lastUpdate = String(user.updatedAt)
 
     if (date.slice(0, 16) === lastUpdate.slice(0, 16)) {
         throw new ApiError(400, "Your today Password updation limit is over")
     }
-    console.log({ password, confirmPassword })
+    console.log({ password })
 
-    if (!password || !confirmPassword) throw new ApiError(400, "All field are required")
-    if (password !== confirmPassword) throw new ApiError(400, "Password does not match")
+    if (!password) throw new ApiError(400, "All field are required")
 
-
-    await User.update({ password: confirmPassword }, { where: { user_id }, individualHooks: true })
+    await User.update({ password }, { where: { email }, individualHooks: true })
 
     return res
         .status(201)

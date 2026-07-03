@@ -1,15 +1,11 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { isUserBlock } from "../model/user.model.js";
 import { Products } from "../model/products.model.js";
 import { Cart_Items } from "../model/cart_item.model.js";
 import { Carts } from "../model/carts.model.js";
 import { Op, where } from "sequelize";
-import { User } from "../model/users.model.js";
-import { Address } from "../model/address.model.js";
-import { Order_Items } from "../model/order-item.model.js";
-import { Orders } from "../model/orders.model.js";
+
 
 const productAddToCart = asyncHandler(async (req, res) => {
 
