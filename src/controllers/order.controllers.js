@@ -231,6 +231,7 @@ const getCompletedOrder = asyncHandler(async (req, res) => {
 const orderBill = asyncHandler(async (req, res) => {
     const { order_item_id } = req.body
 
+    console.log(order_item_id,"OI")
     if (!order_item_id) {
         throw new ApiError(400, "order_item_id are required")
     }

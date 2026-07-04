@@ -4,10 +4,10 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { User } from "../model/users.model.js";
-import { Op } from "sequelize";
+import { Op, where } from "sequelize";
 import { Address } from "../model/address.model.js";
 import crypto from "crypto";
-import { Otp } from "../model/otps.model.js";
+import { Otp } from "../model/otp.model.js";
 import { sendEmail } from "../service/emailConfig.js";
 
 const generateAccessAndRefreshToken = async (user_id) => {
@@ -245,10 +245,11 @@ const generateOTP = () => {
 };
 const sendOtp = asyncHandler(async (req, res) => {
     const { email } = req.body
-    // const user_id = req.user.user_id
-
     if (!email) throw new ApiError(400, "Email are required")
 
+    // const emailExists = await User.findOne({where:{email}})    
+    // if (!emailExists) throw new ApiError(400, "There are no email that you have enter",["Please enter correct email"])
+    
     const otp = generateOTP()
 
     await Otp.create({ otp_num: String(otp) })
@@ -279,15 +280,9 @@ const newPassword = asyncHandler(async (req, res) => {
     const { email, password } = req.body
 
     console.log(email)
-    const date = String(new Date())
-
+    
     const user = await User.findOne({ where: { email }, attributes: ["updatedAt"], raw: true })
-
-    let lastUpdate = String(user.updatedAt)
-
-    if (date.slice(0, 16) === lastUpdate.slice(0, 16)) {
-        throw new ApiError(400, "Your today Password updation limit is over")
-    }
+    
     console.log({ password })
 
     if (!password) throw new ApiError(400, "All field are required")
