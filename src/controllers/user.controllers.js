@@ -77,6 +77,7 @@ const loginUser = asyncHandler(async (req, res) => {
     if (!email || !password || !role) {
         throw new ApiError(400, "All fields are required ")
     }
+    console.log(email,password,role)
 
     const findUser = await User.findOne({
         where: { [Op.and]: [{ email }, { role }] }
@@ -247,8 +248,8 @@ const sendOtp = asyncHandler(async (req, res) => {
     const { email } = req.body
     if (!email) throw new ApiError(400, "Email are required")
 
-    // const emailExists = await User.findOne({where:{email}})    
-    // if (!emailExists) throw new ApiError(400, "There are no email that you have enter",["Please enter correct email"])
+    const emailExists = await User.findOne({where:{email}})    
+    if (!emailExists) throw new ApiError(400, "There are no email that you have enter",["Please enter correct email"])
     
     const otp = generateOTP()
 
