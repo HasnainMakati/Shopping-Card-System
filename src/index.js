@@ -1,5 +1,12 @@
 import dotenv from "dotenv";
-dotenv.config()
+
+// Load production .env file if in production
+if (process.env.NODE_ENV === 'production') {
+  dotenv.config({ path: '.env.production' });
+} else {
+  dotenv.config();
+}
+
 import { app } from "./app.js";
 // import { db } from "./db/index.js"
 import { sequelize } from "./db/index.js";

@@ -1,8 +1,5 @@
 import dotenv from "dotenv";
 dotenv.config();
-
-console.log("KEY_ID =>", process.env.RAZORPAY_KEY_ID || process.env.RAZOR_API_KEY);
-console.log("KEY_SECRET =>", process.env.RAZORPAY_KEY_SECRET || process.env.RAZOR_API_SECRET);
 import cookieParser from "cookie-parser";
 import express from "express";
 import cors from "cors";
