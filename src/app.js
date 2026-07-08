@@ -24,14 +24,14 @@ export const razorpayInstance =
         })
         : null;
 
-// const allowedOrigins = [
-//     process.env.CORS_ORIGIN,
-//     process.env.CORS_ORIGIN_OTHERS,
-// ].filter(Boolean);
+const allowedOrigins = [
+    process.env.CORS_ORIGIN,
+    process.env.CORS_ORIGIN_OTHERS,
+].filter(Boolean);
 
 app.use(
     cors({
-        origin: process.env.CORS_ORIGIN,
+        origin: allowedOrigins,
         credentials: true,
     }),
 );

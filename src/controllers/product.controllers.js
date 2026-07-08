@@ -7,8 +7,8 @@ import { Products } from "../model/products.model.js";
 const getAllProducts = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id
     const allProducts = await Products.findAll()
-
-    if (allProducts.length === 0) throw new ApiError(400, "No any products for this users")
+    
+    if (allProducts.length === 0) throw new ApiError(400, "Products not found")
     return res
         .status(201)
         .json(
