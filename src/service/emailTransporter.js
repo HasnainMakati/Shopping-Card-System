@@ -1,10 +1,9 @@
 import nodemailer from "nodemailer";
 
-
 // const transporter = nodemailer.createTransport({
 //   host: "smtp.gmail.com",
 //   port: 587,
-//   secure: false, 
+//   secure: false,
 //   auth: {
 //     user: process.env.SMTP_USER,
 //     pass: process.env.SMTP_PASS,
@@ -12,24 +11,21 @@ import nodemailer from "nodemailer";
 // });
 
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  family: 4,
-  connectionTimeout: 30000,
-  greetingTimeout: 30000,
-  socketTimeout: 30000,
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: false, // Port 587
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
 });
-transporter.verify((err, success) => {
+
+transporter.verify((err) => {
   if (err) {
-    console.log(err);
+    console.log("SMTP Error:", err);
   } else {
-    console.log("SMTP Connected");
+    console.log("Brevo SMTP Connected");
   }
 });
 
-export {transporter}
+export { transporter };
