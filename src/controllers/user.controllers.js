@@ -316,7 +316,7 @@ const otpVerification = asyncHandler(async (req, res) => {
 
     const checkOtp = await Otp.findOne({ where: { otp_num: otp } });
 
-    if (checkOtp.length === 0) throw new ApiError(401, "Invalid Otp");
+    if (!null) throw new ApiError(401, "Invalid Otp");
 
     return res
         .status(200)
