@@ -296,18 +296,18 @@ const sendOtp = asyncHandler(async (req, res) => {
     if (!emailExists) throw new ApiError(400, "There are no email that you have enter",["Please enter correct email"])
 
     console.log("email :", email);
-    const otp = await generateOTP();
+    // const otp = await generateOTP();
 
     try {
         // await sendEmail(email, otp);
-        await Otp.create({ otp_num: String(otp) });
-        console.log("Your 6-Digit OTP:", otp);
+        // await Otp.create({ otp_num: String(otp) });
+        // console.log("Your 6-Digit OTP:", otp);
         
     } catch (err) {
         throw new ApiError(500,"Email sending failed",[err])
     }
 
-    return res.status(201).json(new ApiResponse(201, "Otp verification"));
+    return res.status(201).json(new ApiResponse(201, "Email Verified"));
 });
 const otpVerification = asyncHandler(async (req, res) => {
     const { otp } = req.body;
