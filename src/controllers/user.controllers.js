@@ -299,7 +299,7 @@ const sendOtp = asyncHandler(async (req, res) => {
     const otp = await generateOTP();
 
     try {
-        // await sendEmail(email, otp);
+        await sendEmail(email, otp);
         await Otp.create({ otp_num: String(otp) });
         console.log("Your 6-Digit OTP:", otp);
         

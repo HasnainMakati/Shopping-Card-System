@@ -6,8 +6,8 @@ const sendEmail = async (email, otp) => {
   console.log("Sending OTP to: ", email);
   try {
     const info = await transporter.sendMail({
-    //  from: `Novo Trends ${process.env.SENDER_EMAIL}`,
-     from: `"Novo Trends" <${process.env.SENDER_EMAIL}>`,
+     from: email,
+    //  from: `"Novo Trends" <${process.env.SENDER_EMAIL}>`,
       to: email,
       subject: "Verify your email",
       text: "we are heard you forget your password, don't worry ",
