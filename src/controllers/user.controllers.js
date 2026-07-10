@@ -8,7 +8,7 @@ import { Op, where } from "sequelize";
 import { Address } from "../model/address.model.js";
 import crypto from "crypto";
 import { Otp } from "../model/otp.model.js";
-import { sendEmail } from "../service/emailConfig.js";
+// import { sendEmail } from "../service/emailConfig.js";
 
 const generateAccessAndRefreshToken = async (user_id) => {
     try {
