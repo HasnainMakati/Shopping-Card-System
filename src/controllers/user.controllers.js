@@ -259,15 +259,15 @@ const userAddressDetails = asyncHandler(async (req, res) => {
 
     const user_id = req.user.user_id;
 
-    // const existedAddress = await Address.findOne({
-    //     where: { user_id },
-    //     attributes: ["user_id"],
-    //     raw: true,
-    // });
+    const existedAddress = await Address.findOne({
+        where: { user_id,address },
+        attributes: ["user_id"],
+        raw: true,
+    });
 
-    // if (existedAddress) {
-    //     throw new ApiError(400, "You already enter address");
-    // }
+    if (existedAddress) {
+        throw new ApiError(400, "Please enter the different address");
+    }
 
     const city_state = city.concat("-", state);
 
