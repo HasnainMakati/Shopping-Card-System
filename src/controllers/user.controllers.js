@@ -248,6 +248,7 @@ const editUser = asyncHandler(async (req, res) => {
 const userAddressDetails = asyncHandler(async (req, res) => {
     const { fullName, pincode, state, city, address, country } = req.body;
 
+    console.log({ fullName, pincode, state, city, address, country })
     if (
         [fullName, pincode, state, city, address, country].some(
             (fields) => !fields || fields.trim() === "",
@@ -258,15 +259,15 @@ const userAddressDetails = asyncHandler(async (req, res) => {
 
     const user_id = req.user.user_id;
 
-    const existedAddress = await Address.findOne({
-        where: { user_id },
-        attributes: ["user_id"],
-        raw: true,
-    });
+    // const existedAddress = await Address.findOne({
+    //     where: { user_id },
+    //     attributes: ["user_id"],
+    //     raw: true,
+    // });
 
-    if (existedAddress) {
-        throw new ApiError(400, "You already enter address");
-    }
+    // if (existedAddress) {
+    //     throw new ApiError(400, "You already enter address");
+    // }
 
     const city_state = city.concat("-", state);
 
