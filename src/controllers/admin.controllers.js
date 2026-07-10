@@ -231,10 +231,15 @@ const deleteUser = asyncHandler(async (req, res) => {
 });
 const getAllUser = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id;
+    console.log(user_id)
     await checkAdmin(user_id);
 
     const users = await User.findAll({
+        where:{role:'user'},
+
+
         attributes: { exclude: ["password", "refreshToken", "updatedAt"] },
+        order: [['createdAt', 'DESC']],
     });
 
     const bills = await Order_Bill.findAll({ raw: true });
@@ -301,7 +306,9 @@ const getAllOrders = asyncHandler(async (req, res) => {
                 ],
                 where: { payment_status: "paid" },
             },
-        ],
+        ],  order: [
+    ['Orders', 'createdAt', 'DESC']
+  ]
     });
 
     if (!orders) throw new ApiError(404, "Orders not found");
