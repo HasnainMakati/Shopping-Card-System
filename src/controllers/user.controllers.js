@@ -90,7 +90,7 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password, role } = req.body;
-
+    console.log({ email, password, role },"Login")
     if (!email || !password || !role) {
         throw new ApiError(400, "All fields are required ");
     }
