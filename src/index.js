@@ -7,6 +7,8 @@ if (process.env.NODE_ENV === 'production') {
   dotenv.config();
 }
 
+console.log("CORS:", process.env.CORS_ORIGIN_DEV);
+
 import { app } from "./app.js";
 // import { db } from "./db/index.js"
 import { sequelize } from "./db/index.js";
@@ -44,6 +46,9 @@ Order_Items.belongsTo(Products, { foreignKey: "product_id" })
 
 Order_Items.hasMany(Order_Bill, { foreignKey: "order_item_id" })
 Order_Bill.belongsTo(Order_Items, { foreignKey: "order_item_id" })
+
+User.hasMany(Order_Bill, { foreignKey: "user_id" })
+Order_Bill.belongsTo(User, { foreignKey: "user_id" })
 
 
 const startServer = async () => {
