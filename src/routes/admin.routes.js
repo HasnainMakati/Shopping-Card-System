@@ -6,6 +6,7 @@ import {
 const router = Router()
 import { verifyUserWithToken } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/multer.middleware.js";
+import { verifyAdmin } from "../middleware/admin.middleware.js";
 // import { loginUser } from "../controllers/user.controllers.js";
 
 router.route("/add-product").post(verifyUserWithToken, upload.single('productImage'), addProduct)

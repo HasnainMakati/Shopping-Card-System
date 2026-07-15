@@ -36,8 +36,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const { firstName, lastName, email, phone, password, gender, role } =
         req.body;
 
-    if (
-        [firstName, lastName, email, phone, password, gender, role].some(
+    if ([firstName, lastName, email, phone, password, gender, role].some(
             (fields) => !fields || fields.trim() === "",
         )
     ) {
@@ -68,7 +67,7 @@ const registerUser = asyncHandler(async (req, res) => {
         gender,
         role: lowerRole,
     });
-
+                                                                
     let user_id = createUser.user_id;
 
     const user = await User.findByPk(user_id, {
@@ -89,6 +88,7 @@ const registerUser = asyncHandler(async (req, res) => {
         );
 });
 const loginUser = asyncHandler(async (req, res) => {
+    
     const { email, password, role } = req.body;
     console.log({ email, password, role },"Login")
     if (!email || !password || !role) {
@@ -286,6 +286,27 @@ const userAddressDetails = asyncHandler(async (req, res) => {
     // console.log(response, "USer address")
     return res.status(201).json(new ApiResponse(201, response, "Address added"));
 });
+const getAddress = asyncHandler(async(req,res)=>{
+    const user_id = req.user.user_id
+
+    const address = await Address.findAll({where:{user_id}})
+
+    if(!address || address.length === 0) throw new ApiError(400,"No address for this user")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200,address,"Address fetched"))
+})
+const deleteAddress = asyncHandler(async(req,res)=>{
+    const id = req.query.id
+
+    if(!id) throw new ApiError(400,"Id is required",)
+    const address = await Address.destroy({where:{id}})
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200,`Deleted ${id}`,"Address deleted"))
+})
 const generateOTP = () => {
     return crypto.randomInt(100000, 1000000);
 };
@@ -295,7 +316,7 @@ const sendOtp = asyncHandler(async (req, res) => {
 
     const emailExists = await User.findOne({where:{email}})
     if (!emailExists) throw new ApiError(400, "There are no email that you have enter",["Please enter correct email"])
-
+        
     console.log("email :", email);
     // const otp = await generateOTP();
 
@@ -355,4 +376,6 @@ export {
     sendOtp,
     otpVerification,
     newPassword,
+    getAddress,
+    deleteAddress
 };

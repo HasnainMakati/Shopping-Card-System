@@ -103,7 +103,9 @@ const editProduct = asyncHandler(async (req, res) => {
         productAddress,
         productStock,
     } = req.body;
+   
     const user_id = req.user.user_id;
+
     console.log(req.body);
 
     if (
@@ -192,8 +194,6 @@ const setUserAccountBlock = asyncHandler(async (req, res) => {
     const { user_id, ac_status } = req.body;
     console.log({ user_id, ac_status });
     const adminId = req.user.user_id;
-
-    // await findAdmin(adminId)
 
     if (!user_id || !ac_status) {
         throw new ApiError(400, "user_id or ac_status is required");
