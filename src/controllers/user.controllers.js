@@ -9,8 +9,11 @@ import { Address } from "../model/address.model.js";
 import crypto from "crypto";
 import { Otp } from "../model/otp.model.js";
 // import { sendEmail } from "../service/emailConfig.js";
+import { sequelize } from "../db/index.js";
+import axios from "axios";
+import gender_detect from "gender-detection"
 
-const generateAccessAndRefreshToken = async (user_id) => {
+export const generateAccessAndRefreshToken = async (user_id) => {
     try {
         const user = await User.findByPk(user_id);
 
@@ -365,6 +368,57 @@ const newPassword = asyncHandler(async (req, res) => {
         .status(201)
         .json(new ApiResponse(201, "Password Updated Successfully"));
 });
+const googleAuth = asyncHandler(async (req, res) => {
+    const { access_token } = req.body;
+
+    if (!access_token) {
+        throw new ApiError(400, "Access token is required");
+    }
+
+    const googleRes = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo",
+        { headers: { Authorization: `Bearer ${access_token}` } }
+    );
+
+    const profile = googleRes.data;
+
+    let gender = gender_detect.detect(profile.given_name);
+
+    if (!profile?.email) {
+        throw new ApiError(400, "There are no user that you have enter");
+    }
+
+    let user = await User.findOne({ where: { email: profile.email } });
+
+    if (!user) {
+        user = await User.create({
+            firstName: profile.given_name.toLowerCase() || "",
+            lastName: profile.family_name.toLowerCase() || "",
+            email: profile.email,
+            phone: 0,
+            gender,
+            password: crypto.randomBytes(16).toString("hex"),
+            role: "user",
+            ac_status: true,
+        });
+    }
+
+    const { accessToken, refreshToken } = await generateAccessAndRefreshToken(
+        user.dataValues.user_id
+    );
+
+    const options = {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+    };
+
+    return res
+        .status(200)
+        .cookie("accessToken", accessToken, options)
+        .cookie("refreshToken", refreshToken, options)
+        .json(
+            new ApiResponse(200, { user: user.dataValues, accessToken }, "Google login successful")
+        );
+});
 
 export {
     registerUser,
@@ -377,5 +431,6 @@ export {
     otpVerification,
     newPassword,
     getAddress,
-    deleteAddress
+    deleteAddress,
+    googleAuth
 };

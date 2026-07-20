@@ -10,42 +10,42 @@ import productRouter from "./routes/product.routes.js";
 import cartRouter from "./routes/cart.routes.js";
 import orderRouter from "./routes/order.routes.js";
 import adminRouter from "./routes/admin.routes.js";
-
+import googleRoutes from "./routes/user.routes.js"
+import session from "express-session";
+// import passport from "./config/google.config.js";
+// import { Strategy as googleStrategy } from "passport-google-oauth2";
 const app = express();
 
-const razorpayKeyId = process.env.RAZORPAY_KEY_ID || process.env.RAZOR_API_KEY;
-const razorpayKeySecret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZOR_API_SECRET;
-
-export const razorpayInstance =
-    razorpayKeyId && razorpayKeySecret
-        ? new Razorpay({
-            key_id: razorpayKeyId,
-            key_secret: razorpayKeySecret,
-        })
-        : null;
-
-const allowedOrigins = [
-    process.env.CORS_ORIGIN,
-    process.env.CORS_ORIGIN_OTHERS,
-].filter(Boolean);
-
-app.use(
-    cors({
-        origin: allowedOrigins,
-        credentials: true,
-    }),
-);
-
-// app.get("/", (req, res) => {
-//     res.send("🚀 Backend is running successfully");
-// });
-
+/**
+ * @Project_Routes
+ */
 app.use(express.json({ limit: "16kb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-// http://localhost:4000/api/v1/shops/user
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://127.0.0.1:4000"],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+
+app.use("/api/v1/shops/auth", googleRoutes);
+
+/**
+ * @RazorPay_Config
+ */
+const razorpayKeyId = process.env.RAZORPAY_KEY_ID || process.env.RAZOR_API_KEY;
+const razorpayKeySecret =
+  process.env.RAZORPAY_KEY_SECRET || process.env.RAZOR_API_SECRET;
+
+export const razorpayInstance =
+  razorpayKeyId && razorpayKeySecret
+    ? new Razorpay({ key_id: razorpayKeyId, key_secret: razorpayKeySecret })
+    : null;
 
 app.use("/api/v1/shops/users", userRouter);
 app.use("/api/v1/shops/products", productRouter);
@@ -55,3 +55,20 @@ app.use("/api/v1/shops/admin", adminRouter);
 
 app.use(globalErrorHandler);
 export { app };
+
+
+
+/**
+ * @Google_Passport_Configuration
+ */
+// app.use(
+//     session({
+//         secret: process.env.SESSION_SECRET,
+//         resave: false,
+//         saveUninitialized: false,
+//         cookie: { secure: false },
+//     }),
+// );
+
+// app.use(passport.initialize());
+// app.use(passport.session());
