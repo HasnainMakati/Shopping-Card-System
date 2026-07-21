@@ -15,6 +15,15 @@ import session from "express-session";
 // import passport from "./config/google.config.js";
 // import { Strategy as googleStrategy } from "passport-google-oauth2";
 const app = express();
+app.use(
+  cors({
+    origin: [process.env.CORS_ORIGIN,process.env.CORS_ORIGIN_ADMIN,process.env.CORS_ORIGIN_DEV],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+
 
 /**
  * @Project_Routes
@@ -24,14 +33,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(cookieParser());
 
-app.use(
-  cors({
-    origin: [process.env.CORS_ORIGIN,process.env.CORS_ORIGIN_ADMIN,process.env.CORS_ORIGIN_DEV],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
+
 
 app.use("/api/v1/shops/auth", googleRoutes);
 

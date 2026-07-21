@@ -1,13 +1,5 @@
 import dotenv from "dotenv";
-
-// Load production .env file if in production
-if (process.env.NODE_ENV === 'production') {
-  dotenv.config({ path: '.env.production' });
-} else {
-  dotenv.config();
-}
-
-console.log("CORS:", process.env.CORS_ORIGIN_DEV);
+dotenv.config();
 
 import { app } from "./app.js";
 // import { db } from "./db/index.js"
@@ -54,10 +46,10 @@ Order_Bill.belongsTo(User, { foreignKey: "user_id" })
 const startServer = async () => {
     try {
         await sequelize.authenticate();
-        console.log("Database connect successfully")
+        // console.log("Database connect successfully")
 
         await sequelize.sync()
-        console.log('All models synchronized');
+        // console.log('All models synchronized');
 
         app.listen(process.env.PORT || 4000, () => {
             console.log(`Server running port on ${process.env.PORT}`)
