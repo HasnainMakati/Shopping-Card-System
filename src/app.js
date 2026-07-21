@@ -17,10 +17,8 @@ import session from "express-session";
 const app = express();
 app.use(
   cors({
-    origin: [process.env.CORS_ORIGIN,process.env.CORS_ORIGIN_ADMIN,process.env.CORS_ORIGIN_DEV],
+    origin: process.env.CORS_ORIGIN,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
 
