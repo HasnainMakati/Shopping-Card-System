@@ -93,7 +93,7 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
     
     const { email, password, role } = req.body;
-    console.log({ email, password, role },"Login")
+
     if (!email || !password || !role) {
         throw new ApiError(400, "All fields are required ");
     }
@@ -212,8 +212,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 const editUser = asyncHandler(async (req, res) => {
     const { user_id, firstName, lastName, email, phone, gender } = req.body;
 
-    console.log({ user_id, firstName, lastName, email, phone, gender });
-
     if (!user_id) {
         throw new ApiError(400, "Id is required");
     }
@@ -231,11 +229,9 @@ const editUser = asyncHandler(async (req, res) => {
         {
             where: { user_id },
             raw: true,
-            raw: true,
         },
     );
 
-    console.log(a, "edit hua");
     const user = await User.findByPk(user_id, {
         attributes: {
             exclude: ["refreshToken", "password"],
@@ -249,11 +245,10 @@ const editUser = asyncHandler(async (req, res) => {
         .json(new ApiResponse(201, user, "User edited successfully"));
 });
 const userAddressDetails = asyncHandler(async (req, res) => {
-    const { fullName, pincode, state, city, address, country } = req.body;
+    const { fullName,phone, pincode, state, city, address, country } = req.body;
 
-    console.log({ fullName, pincode, state, city, address, country })
     if (
-        [fullName, pincode, state, city, address, country].some(
+        [fullName,phone, pincode, state, city, address, country].some(
             (fields) => !fields || fields.trim() === "",
         )
     ) {
@@ -268,8 +263,15 @@ const userAddressDetails = asyncHandler(async (req, res) => {
         raw: true,
     });
 
+    const user = await User.findOne({where:{user_id},attributes:["phone","user_id"]})
+
+    if(!user || user.phone.length === 8){
+        user.phone = phone
+        await user.save();
+    }
+
     if (existedAddress) {
-        throw new ApiError(400, "Please enter the different address");
+        throw new ApiError(400, "This address are already exists, please enter different address");
     }
 
     const city_state = city.concat("-", state);
@@ -292,7 +294,11 @@ const userAddressDetails = asyncHandler(async (req, res) => {
 const getAddress = asyncHandler(async(req,res)=>{
     const user_id = req.user.user_id
 
-    const address = await Address.findAll({where:{user_id}})
+    const address = await User.findAll({
+        where:user_id,
+        attributes:["firstName","lastName","email","phone","gender"],
+        include:[{model:Address,attributes:{exclude:["user_id","fullName"]}}]
+    })
 
     if(!address || address.length === 0) throw new ApiError(400,"No address for this user")
 
@@ -378,24 +384,25 @@ const googleAuth = asyncHandler(async (req, res) => {
     const googleRes = await axios.get("https://www.googleapis.com/oauth2/v3/userinfo",
         { headers: { Authorization: `Bearer ${access_token}` } }
     );
-
-    const profile = googleRes.data;
-
-    let gender = gender_detect.detect(profile.given_name);
-
+    
+    let profile = googleRes.data;
+    let rawGender = gender_detect.detect(profile.given_name);
+    let genderFix = (rawGender === 'female') ? 'female' : 'male';
+    
     if (!profile?.email) {
         throw new ApiError(400, "There are no user that you have enter");
     }
-
+    
     let user = await User.findOne({ where: { email: profile.email } });
 
     if (!user) {
+
         user = await User.create({
             firstName: profile.given_name.toLowerCase() || "",
             lastName: profile.family_name.toLowerCase() || "",
             email: profile.email,
-            phone: 0,
-            gender,
+            phone: Math.floor(Math.random() * 100000000) + 1000000,         /**@Add_Phone_Later */
+            gender:genderFix,
             password: crypto.randomBytes(16).toString("hex"),
             role: "user",
             ac_status: true,
