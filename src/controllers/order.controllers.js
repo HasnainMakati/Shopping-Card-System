@@ -66,7 +66,7 @@ const orderItems = asyncHandler(async (req, res) => {
 
 
         console.log(newQty, price, "money")
-        const futureData = moment().add(4, 'minutes').toDate();
+        const futureData = moment().add(2, 'days').toDate();
         console.log(futureData,"Future Date") 
 
         const orders = await Orders.create({
