@@ -291,23 +291,30 @@ const getAllOrders = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id;
     await checkAdmin(user_id);
 
-    const orders = await User.findAll({
-        attributes: ["user_id", "firstName", "lastName"],
-        raw: true,
-        include: [
-            {
-                model: Orders,
-                attributes: [
+     const orders = await Orders.findAll({
+        attributes: [
                     "order_id",
                     "total_amount",
                     "order_status",
                     "payment_status",
                     "createdAt",
                 ],
-                where: { payment_status: "paid" },
-            },
-        ],  order: [
-    ['Orders', 'createdAt', 'DESC']
+        include:[
+            {
+            model:Order_Items,
+            attributes:["order_item_id","product_id"],
+            include:[{
+                model:Products,
+                attributes:["productName"]
+            }]
+        },
+        {
+            model:User,
+            attributes:["firstName","lastName"]
+        }
+        ],
+          order: [
+    ['createdAt', 'DESC']
   ]
     });
 
@@ -319,29 +326,31 @@ const getAllOrders = asyncHandler(async (req, res) => {
 });
 const getAllInVoice = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id;
-    await checkAdmin(user_id);
+    await checkAdmin(user_id)   ;
 
-    const inVoicesData = await User.findAll({
+       const inVoicesData = await User.findAll({
         attributes: ["user_id", "firstName", "lastName", "role"],
         where: { role: "user" },
         include: [
             {
-                model: Order_Items,
-                attributes: ["itemName", "itemPrice"],
-                include: [
-                    {
-                        model: Orders,
-                        attributes: ["order_id", "payment_status", "product_id"],
-                        where: { payment_status: "paid" },
-                    },
-                    {
+                model: Orders,
+                attributes: ["order_id", "payment_status", "product_id"],
+                where: { payment_status: "paid" },
+                include:[{
+                    model: Order_Items,
+                    attributes: ["itemName", "itemPrice"],
+                    include:[{
                         model: Order_Bill,
                         attributes: ["user_id", "invoiceId", "bill_id", "bill_date"],
-                    },
-                ],
+                    }]
+                }]
             },
         ],
+        order: [
+        [Orders,Order_Items, Order_Bill, 'bill_date', 'DESC']
+    ]
     });
+   
     return res
         .status(201)
         .json(new ApiResponse(201, inVoicesData, "All inVoice are fetched"));

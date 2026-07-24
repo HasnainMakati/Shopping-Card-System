@@ -7,10 +7,7 @@ const router = Router()
 import { verifyUserWithToken } from "../middleware/auth.middleware.js";
 import { upload } from "../middleware/multer.middleware.js";
 import { verifyAdmin } from "../middleware/admin.middleware.js";
-import { registerUser } from "../controllers/user.controllers.js";
-// import { loginUser } from "../controllers/user.controllers.js";
 
-router.route("/register-user").post(registerUser)
 router.route("/add-product").post(verifyUserWithToken, upload.single('productImage'), addProduct)
 router.route("/edit-product").put(verifyUserWithToken, upload.single('productImage'), editProduct)
 router.route("/delete-product").delete(verifyUserWithToken, removeProduct)

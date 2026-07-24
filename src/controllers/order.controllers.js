@@ -16,7 +16,7 @@ import { cloneDeep } from "sequelize/lib/utils";
 import { Order_Bill } from "../model/order_bill.model.js";
 import { sequelize } from "../db/index.js";
 import { raw } from "express";
-
+import moment from 'moment';
 
 const orderItems = asyncHandler(async (req, res) => {
 
@@ -30,8 +30,8 @@ const orderItems = asyncHandler(async (req, res) => {
         throw new ApiError(400, "All fields are required")
     }
 
-    // if old orders unpaid , now it`a update to failed 
-    const oldOrder = await Orders.update({ payment_status: 'failed',order_status:'cancelled' }, { where: { [Op.and]: [{ user_id }, { payment_status: 'unpaid' }] } })
+    // if old orders Un-paid , now it`a update to failed 
+    const oldOrder = await Orders.update({ payment_status: 'Failed',order_status:'Failed' }, { where: { [Op.and]: [{ user_id }, { payment_status: 'Un-paid' }] } })
     console.log(oldOrder)
 
     const idArray = Array.isArray(productIds) ? productIds : [productIds];
@@ -66,13 +66,17 @@ const orderItems = asyncHandler(async (req, res) => {
 
 
         console.log(newQty, price, "money")
+        const futureData = moment().add(4, 'minutes').toDate();
+        console.log(futureData,"Future Date") 
+
         const orders = await Orders.create({
             user_id,
             product_id: item.product_id,
             total_amount: Number(price),
-            order_status: 'pending',
-            payment_method: 'no data',
-            payment_status: 'unpaid',
+            order_status: 'Pending',
+            payment_method: 'No-data',
+            payment_status: 'Un-paid',
+            createdAt:futureData    
         })
 
         const ordersOrder_id = orders.order_id || orders.id;
@@ -85,8 +89,9 @@ const orderItems = asyncHandler(async (req, res) => {
             itemImage: item.itemImage,
             itemQuantity: newQty,
             itemPrice: price,
-            order_status: 'Your item is on the way',
-            success: 'no data',
+            order_status: 'Pending',
+            success: 'No-data',
+            createdAt:futureData    
         })
         totalOrderProduct += 1
         amount += price
@@ -116,13 +121,9 @@ const orderItems = asyncHandler(async (req, res) => {
 })
 const orderPaymentProcess = asyncHandler(async (req, res) => {
 
-    
     let { userOrderAmount } = req.body
-    // let user_id = req.user.user_id
     const user_id = req.user.user_id
 
-    console.log(user_id,"YE ayi")
-    // return
     let calculatedAmount = 0
     let idArray = []
     let invoiceId = ''
@@ -136,7 +137,7 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
     if (!checkAddress) throw new ApiError(400, "Address are required ", ["Enter your address"])
 
     const allCartItems = await Orders.findAll({
-    where:{payment_status:'unpaid',user_id},attributes: ['order_id', 'total_amount', 'payment_status'],
+    where:{payment_status:'Un-paid',user_id},attributes: ['order_id', 'total_amount', 'payment_status'],
     // raw:true,
     include:[
         {model: User, attributes: ["user_id", "firstName", "lastName", "email", "role"],
@@ -153,9 +154,6 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
 
     const cleanOrders = allCartItems.map(order => order.get({ plain: true }));
 
-    console.log(cleanOrders,"done bhai ");
-    // console.log(allCartItems,"All cartItem")
- 
     const all = allCartItems.map((data) => {
         
         const [orderItem] = data.Order_Items || [];
@@ -178,19 +176,13 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
     })
 
     console.log(all,"All")
-
-    // const orderProducts = await Orders.findAll({
-    //     where: { user_id, payment_status: 'unpaid' },
-    //     attributes: ['order_id', 'total_amount', 'payment_status'],
-    //     raw: true
-    // })
     if (all.length === 0) {
         throw new ApiError(403, "No orders in the list")
     }
 
     for (let { order_id, total_amount, payment_status } of all) {
         console.log({ order_id, total_amount })
-        if (payment_status === 'paid') throw new ApiError(400, "Payment already paid")
+        if (payment_status === 'Paid') throw new ApiError(400, "Payment already paid")
         idArray.push(Array.isArray(order_id) ? order_id : [order_id]);
         calculatedAmount += Number(total_amount)
     }
@@ -205,9 +197,9 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
     }
 
     const updateOrdersStatus = await Orders.update({
-        order_status: 'shipped',
-        payment_status: 'paid',
-        payment_method: 'cash on delivery'
+        order_status: 'Pending',
+        payment_status: 'Paid',
+        payment_method: 'COD'
     }, {
         where: { order_id: { [Op.in]: idArray } },
         transaction: t
@@ -215,7 +207,7 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
 
     for (let b of all) {
         invoiceId = generateInvoiceID()
-        console.log(b.product_id, 'inside b')
+        // console.log(b.product_id, 'inside b')
         await Order_Bill.create({
             user_id,
             order_item_id: b.order_item_id,
@@ -229,7 +221,7 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
             totalPrice: Number(b.itemPrice),
         },{transaction:t})
         await Products.update({ productStock: b.productStock - 1 }, { where: { product_id: b.product_id },transaction: t })
-        await Order_Items.update({ success: 'true' }, { where: { order_item_id: b.order_item_id },transaction: t })
+        await Order_Items.update({ success: 'True' }, { where: { order_item_id: b.order_item_id },transaction: t })
     }
     console.log('CASH ON DEL DONE');
     await t.commit();
@@ -244,7 +236,7 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
 const getCompletedOrder = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id
     // const allOrders = await responseAllCompleteOrders(user_id)
-    const allOrders = await Order_Items.findAll({ where: {user_id,success:'true'}, order: [['createdAt', 'DESC']], })
+    const allOrders = await Order_Items.findAll({ where: {user_id,success:'True'}, order: [['createdAt', 'DESC']], })
 
     if (!allOrders || allOrders.length === 0) throw new ApiError(404, "No order found")
 
@@ -289,7 +281,7 @@ const createRazorOrder = asyncHandler(async (req, res) => {
     
     if(userAmount > 500000) throw new ApiError(400,"Razor pay does not provide to orders that amount are above 5-lakh,")
 
-    await Orders.update({ payment_status: 'failed' }, { where: { [Op.and]: [{ user_id }, { payment_status: 'unpaid' }] } })
+    await Orders.update({ payment_status: 'Failed' }, { where: { [Op.and]: [{ user_id }, { payment_status: 'Un-paid' }] } })
     const idArray = Array.isArray(productIds) ? productIds : [productIds];
 
     const cartItem = await Cart_Items.findAll({
@@ -324,15 +316,19 @@ const createRazorOrder = asyncHandler(async (req, res) => {
             );
             console.log(newQty, price, newTotalPrice, "money")
         }
+
+        const futureData = moment().add(2,'days').toDate();
+
         const orders = await Orders.create({
             user_id,
             product_id: item.product_id,
             total_amount: Number(newTotalPrice),
-            order_status: 'pending',
-            payment_method: 'no data',
-            payment_status: 'unpaid'
+            order_status: 'Pending',
+            payment_method: 'No-data',
+            payment_status: 'Un-paid',
+            createdAt:futureData
         })
-
+        
         const ordersOrder_id = orders.order_id || orders.id;
         // add details in the order_item jaha sare complete order aayege
         await Order_Items.create({
@@ -343,8 +339,9 @@ const createRazorOrder = asyncHandler(async (req, res) => {
             itemImage: item.itemImage,
             itemQuantity: newQty,
             itemPrice: newTotalPrice,
-            order_status: 'Your item is on the way',
-            success: 'no data',
+            order_status: 'Pending',
+            success: 'No-data',
+            createdAt:futureData
         })
         totalOrderProduct += 1
         amount += newTotalPrice
@@ -424,12 +421,12 @@ const verifyPayment = asyncHandler(async (req, res) => {
                 model: Order_Items, attributes: ["order_item_id", "product_id", "itemName", "itemQuantity", "itemPrice"],
                 include: [
                     { model: Products, attributes: ["productAddress", "productStock"] },
-                    { model: Orders, where: { payment_status: 'unpaid' }, attributes: ["payment_status", "payment_status"] },
+                    { model: Orders, where: { payment_status: 'Un-paid' }, attributes: ["payment_status", "payment_status"] },
                 ]
             },
             { model: Address, attributes: ["address", "city_state"] }
         ],
-        // raw: true
+       
     })
     const all = allCartItems.map((data) => {
         return {
@@ -449,22 +446,22 @@ const verifyPayment = asyncHandler(async (req, res) => {
     console.log(allCartItems, "data")
     // return;
     const orderProducts = await Orders.findAll({
-        where: { user_id, payment_status: 'unpaid' },
+        where: { user_id, payment_status: 'Un-paid' },
         attributes: ['order_id', 'total_amount', 'payment_status'],
         raw: true
     })                      // get bill details
 
     for (let item of orderProducts) {
-        if (item.payment_status === 'paid') {
+        if (item.payment_status === 'Paid') {
             throw new ApiError(400, "Payment already paid")
         }
         idArray.push(Array.isArray(item.order_id) ? item.order_id : [item.order_id]);
     }
 
     const updateOrdersStatus = await Orders.update({
-        order_status: 'shipped',
-        payment_status: 'paid',
-        payment_method: 'razor pay'
+        order_status: 'Pending',
+        payment_status: 'Paid',
+        payment_method: 'RP'
     }, {
         where: { order_id: { [Op.in]: idArray } }
     })
@@ -486,7 +483,7 @@ const verifyPayment = asyncHandler(async (req, res) => {
             totalPrice: Number(b.itemPrice),
         })
         await Products.update({ productStock: b.productStock - 1 }, { where: { product_id: b.product_id } })
-        await Order_Items.update({ success: 'true' }, { where: { order_item_id: b.order_item_id } })
+        await Order_Items.update({ success: 'True' }, { where: { order_item_id: b.order_item_id } })
     }
     console.log("Razor payment done")
     return res
@@ -494,6 +491,35 @@ const verifyPayment = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, { status: "Paid" }, "Order placed successfully"));
 
 })
+const orderCancel = asyncHandler(async(req,res)=>{
+    const {order_item_id} = req.query
+
+    if(!order_item_id) throw new ApiError(400,"Order id is required")
+    const findOrders = await Order_Items.findOne(
+        {
+        where:{order_item_id},
+        attributes:["order_item_id",'order_id'],
+    })
+
+    let oi_id = findOrders.dataValues.order_item_id
+    let o_id = findOrders.dataValues.order_id
+
+    if(findOrders){
+        await Orders.update(
+            { order_status: 'Cancelled',payment_method: 'No-data',payment_status: 'No-data'},
+            {
+                where:{order_id:o_id}
+            })
+        await Order_Items.update(
+            {order_status:'Cancelled',success:'False'},
+            {
+                where:{order_item_id:oi_id}
+        })
+    }
+        return res
+    .status(201)
+    .json(new ApiResponse(201,`Order ${oi_id} cancelled`))
+})
 export {
-    orderItems, orderPaymentProcess, getCompletedOrder, orderBill, verifyPayment, createRazorOrder
+    orderItems, orderPaymentProcess, getCompletedOrder, orderBill, verifyPayment, createRazorOrder,orderCancel
 }

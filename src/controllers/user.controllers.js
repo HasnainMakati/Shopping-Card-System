@@ -210,14 +210,15 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         );
 });
 const editUser = asyncHandler(async (req, res) => {
-    const { user_id, firstName, lastName, email, phone, gender } = req.body;
+    const { user_id, firstName, lastName, email, gender } = req.body;
 
+    console.log({ user_id, firstName, lastName, email, gender })
     if (!user_id) {
         throw new ApiError(400, "Id is required");
     }
 
     if (
-        [firstName, lastName, email, phone, gender].some(
+        [firstName, lastName, email, gender].some(
             (fields) => !fields || fields.trim() === "",
         )
     ) {
@@ -225,7 +226,7 @@ const editUser = asyncHandler(async (req, res) => {
     }
 
     const a = await User.update(
-        { firstName, lastName, email, phone, gender },
+        { firstName, lastName, email, gender },
         {
             where: { user_id },
             raw: true,
