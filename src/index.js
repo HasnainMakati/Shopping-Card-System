@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 
+
 import { app } from "./app.js";
 // import { db } from "./db/index.js"
 import { sequelize } from "./db/index.js";
@@ -13,6 +14,7 @@ import { Orders } from "./model/orders.model.js";
 import { Order_Items } from "./model/order-item.model.js";
 import { Order_Bill } from "./model/order_bill.model.js";
 import { Otp } from "./model/otp.model.js";
+import { initOrderCron } from "./service/cron_jobs.js";
 
 // User-Address
 User.hasOne(Address, {
@@ -53,6 +55,7 @@ const startServer = async () => {
 
         app.listen(process.env.PORT || 4000, () => {
             console.log(`Server running port on ${process.env.PORT}`)
+            initOrderCron()
         })
     } catch (error) {
         console.log("DB Error :", error.message)

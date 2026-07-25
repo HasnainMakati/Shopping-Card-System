@@ -236,8 +236,9 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
 const getCompletedOrder = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id
     // const allOrders = await responseAllCompleteOrders(user_id)
-    const allOrders = await Order_Items.findAll({ where: {user_id,success:'True'}, order: [['createdAt', 'DESC']], })
 
+    const allOrders = await Order_Items.findAll({ order: [['createdAt', 'DESC']] })
+    
     if (!allOrders || allOrders.length === 0) throw new ApiError(404, "No order found")
 
     return res
@@ -492,9 +493,9 @@ const verifyPayment = asyncHandler(async (req, res) => {
 
 })
 const orderCancel = asyncHandler(async(req,res)=>{
-    const {order_item_id} = req.query
+    const {order_item_id} = req.body
 
-    if(!order_item_id) throw new ApiError(400,"Order id is required")
+    if(!order_item_id) throw new ApiError(400,"Order Item id is required")
     const findOrders = await Order_Items.findOne(
         {
         where:{order_item_id},
@@ -506,12 +507,12 @@ const orderCancel = asyncHandler(async(req,res)=>{
 
     if(findOrders){
         await Orders.update(
-            { order_status: 'Cancelled',payment_method: 'No-data',payment_status: 'No-data'},
+            { order_status: 'Cancelled',payment_method: 'No-data',payment_status: 'No-data',createdAt:moment().toDate()},
             {
                 where:{order_id:o_id}
             })
         await Order_Items.update(
-            {order_status:'Cancelled',success:'False'},
+            {order_status:'Cancelled',success:'False',createdAt:moment().toDate()},
             {
                 where:{order_item_id:oi_id}
         })

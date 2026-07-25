@@ -394,8 +394,8 @@ const operationalHighlight = asyncHandler(async (req, res) => {
             totalUsers,
             revenue,
         ] = await Promise.all([
-            Orders.count({ col: "order_status", where: { order_status: "pending" } }),
-            Orders.count({ col: "order_status", where: { order_status: "shipped" } }),
+            Orders.count({ col: "order_status", where: { order_status: "Pending" } }),
+            Orders.count({ col: "order_status" }),
             Products.count({
                 col: "productStock",
                 where: { productStock: { [Op.lt]: 10 } },
@@ -476,6 +476,17 @@ const testUser = asyncHandler(async (req, res) => {
 
     return res.status(201).json(new ApiResponse(201, user, `User Response`));
 });
+// const orderStatusFilter = asyncHandler(async(req,res)=>{
+//     const {order_status} = req.body
+    
+//     const findStatus = await Orders.findAll({where:{order_status}})
+
+//     if(!findStatus || findStatus.length === 0) throw new ApiError(400,"There are no status")
+
+//     return res
+//     .status(201)
+//     .json(new ApiResponse(201,findStatus,"Status fetched"))
+// })
 export {
     addProduct,
     editProduct,
@@ -490,4 +501,5 @@ export {
     operationalHighlight,
     testUser,
     graphData,
+    // orderStatusFilter
 };
