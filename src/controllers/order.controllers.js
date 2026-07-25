@@ -198,7 +198,7 @@ const orderPaymentProcess = asyncHandler(async (req, res) => {
 
     const updateOrdersStatus = await Orders.update({
         order_status: 'Pending',
-        payment_status: 'Paid',
+        payment_status: 'Un-paid',
         payment_method: 'COD'
     }, {
         where: { order_id: { [Op.in]: idArray } },

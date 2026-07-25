@@ -22,7 +22,7 @@ const initOrderCron = () => {
       );
 
       const ordersStatus = await Orders.update(
-        { order_status: 'Delivered'},
+        { order_status: 'Delivered', payment_status: 'Paid'},
         {
           where: {
             order_status: 'Pending',
