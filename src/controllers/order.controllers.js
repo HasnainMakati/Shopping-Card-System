@@ -237,7 +237,7 @@ const getCompletedOrder = asyncHandler(async (req, res) => {
     const user_id = req.user.user_id
     // const allOrders = await responseAllCompleteOrders(user_id)
 
-    const allOrders = await Order_Items.findAll({ order: [['createdAt', 'DESC']] })
+    const allOrders = await Order_Items.findAll({where:{user_id} ,order: [['createdAt', 'DESC']] })
     
     if (!allOrders || allOrders.length === 0) throw new ApiError(404, "No order found")
 
